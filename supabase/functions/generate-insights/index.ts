@@ -70,7 +70,7 @@ serve(async (req) => {
 
         // Call OpenAI API using the SDK
         const response = await client.chat.completions.create({
-          model: "gpt-5-mini",
+          model: "gpt-5-nano",
           messages: [
             {
               role: "system",
