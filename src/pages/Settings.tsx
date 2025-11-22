@@ -38,7 +38,7 @@ export default function Settings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (user?.role === 'Parent') {
+    if (user) {
       fetchChildren();
     }
   }, [user]);
@@ -58,10 +58,30 @@ export default function Settings() {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('children')
-        .select('*')
-        .eq('parent_id', user.user.id);
+      let query;
+
+      if (user.role === 'Parent') {
+        // Parents see children they created
+        query = supabase
+          .from('children')
+          .select('*')
+          .eq('parent_id', user.user.id);
+      } else {
+        // Teachers and Clinicians see children shared with them
+        const { data: accessData } = await supabase
+          .from('child_access')
+          .select('child_id')
+          .eq('user_id', user.user.id);
+
+        const childIds = (accessData || []).map((a: any) => a.child_id);
+        
+        query = supabase
+          .from('children')
+          .select('*')
+          .in('id', childIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setChildren(data || []);
