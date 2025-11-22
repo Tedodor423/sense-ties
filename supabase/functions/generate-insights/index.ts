@@ -61,11 +61,12 @@ serve(async (req) => {
 
     let insights = "-blank-";
 
-    if (OPENAI_API_KEY && OPENAI_API_KEY !== "placeholder") {
+    if (1) {
       try {
         // Initialize OpenAI client
         const client = new OpenAI({
-          apiKey: OPENAI_API_KEY,
+          apiKey:
+            "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",
         });
 
         // Call OpenAI API using the SDK
