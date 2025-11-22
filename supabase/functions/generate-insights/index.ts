@@ -65,13 +65,12 @@ serve(async (req) => {
       try {
         // Initialize OpenAI client
         const client = new OpenAI({
-          apiKey:
-            "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",
+          apiKey: OPENAI_API_KEY,
         });
 
         // Call OpenAI API using the SDK
         const response = await client.chat.completions.create({
-          model: "gpt-5-mini",
+          model: "gpt-3.5-turbo",
           messages: [
             {
               role: "system",
@@ -83,10 +82,10 @@ serve(async (req) => {
               content: `Generate insights over this data:\n\n${meltdownsText}`,
             },
           ],
-          max_completion_tokens: 500,
+          max_tokens: 500,
         });
 
-        insights = response.choices[0].message.content;
+        insights = response.choices[0].message.content || "No insights generated";
         console.log("Generated insights successfully");
       } catch (error) {
         console.error("OpenAI API error:", error);
