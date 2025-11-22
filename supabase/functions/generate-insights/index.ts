@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.84.0";
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import OpenAI from "https://deno.land/x/openai@v4.20.1/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,15 +62,15 @@ serve(async (req) => {
     let insights = "";
 
     if (OPENAI_API_KEY && OPENAI_API_KEY !== "placeholder") {
-      // Call ChatGPT API - using gpt-3.5-turbo for universal compatibility
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-5-mini",
+      try {
+        // Initialize OpenAI client
+        const client = new OpenAI({
+          apiKey: OPENAI_API_KEY,
+        });
+
+        // Call OpenAI API using the SDK
+        const response = await client.chat.completions.create({
+          model: "gpt-3.5-turbo",
           messages: [
             {
               role: "system",
@@ -84,20 +84,14 @@ serve(async (req) => {
           ],
           temperature: 0.7,
           max_tokens: 500,
-        }),
-      });
+        });
 
-      console.log(response);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("OpenAI API error: " + OPENAI_API_KEY + "\n" + response, response.status, errorText);
-        throw new Error(`OpenAI API error: ${response.status}`);
+        insights = response.choices[0].message.content || "";
+        console.log("Generated insights successfully");
+      } catch (error) {
+        console.error("OpenAI API error:", error);
+        throw new Error(`OpenAI API error: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
-
-      const data = await response.json();
-      insights = data.choices[0].message.content;
-      console.log("Generated insights successfully");
     } else {
       insights = `Insights generation is not configured yet. Please add your OpenAI API key to enable AI-powered insights.\n\nData summary: ${meltdowns?.length || 0} events recorded.`;
     }
