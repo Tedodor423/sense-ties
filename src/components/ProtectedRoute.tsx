@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Database } from '@/types/database';
 
-type UserRole = Database['public']['Tables']['users_extended']['Row']['role'];
+type UserRole = Database['public']['Tables']['user_roles']['Row']['role'];
 
 interface ProtectedRouteProps {
   children: ReactNode;
