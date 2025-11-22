@@ -59,7 +59,7 @@ serve(async (req) => {
         )
         .join("\n\n") || "No meltdown data available yet.";
 
-    let insights = "";
+    let insights = "-blank-";
 
     if (OPENAI_API_KEY && OPENAI_API_KEY !== "placeholder") {
       try {
