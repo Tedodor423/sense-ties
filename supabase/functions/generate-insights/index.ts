@@ -79,7 +79,7 @@ serve(async (req) => {
             },
             {
               role: "user",
-              content: `Generate insights over this data:\n\n${meltdownsText}`,
+              content: `Generate insights over this data in a simple text format, maximum 2 paragraphs. It should be very readable by an amateur audience:\n\n${meltdownsText}`,
             },
           ],
         });
