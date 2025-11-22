@@ -58,7 +58,7 @@ serve(async (req) => {
     let insights = '';
 
     if (OPENAI_API_KEY && OPENAI_API_KEY !== 'placeholder') {
-      // Call ChatGPT API
+      // Call ChatGPT API - using gpt-3.5-turbo for universal compatibility
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -66,7 +66,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-3.5-turbo',
           messages: [
             { 
               role: 'system', 
