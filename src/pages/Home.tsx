@@ -14,7 +14,7 @@ export default function Home() {
             Welcome to SenseTies
           </h1>
           <p className="text-xl text-muted-foreground mb-12 leading-relaxed">
-            SenseTies helps parents, teachers, and clinicians understand and track children's meltdown patterns 
+            SenseTies helps parents, teachers, and practitioners understand and track children's meltdown patterns 
             in a compassionate, data-driven way. By recording environmental triggers and meltdown intensity, 
             we can work together to create calmer, more supportive environments for children.
           </p>
