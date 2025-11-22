@@ -35,7 +35,7 @@ export default function Dashboard() {
           .select('*')
           .eq('parent_id', user.user.id);
       } else {
-        // Teachers and Clinicians see children shared with them
+        // Teachers and Practitioners see children shared with them
         const { data: accessData } = await supabase
           .from('child_access')
           .select('child_id')

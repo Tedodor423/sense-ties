@@ -117,7 +117,7 @@ export default function Register() {
                   <SelectContent>
                     <SelectItem value="Parent">Parent</SelectItem>
                     <SelectItem value="Teacher">Teacher</SelectItem>
-                    <SelectItem value="Clinician">Clinician</SelectItem>
+                    <SelectItem value="Clinician">Practitioner</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

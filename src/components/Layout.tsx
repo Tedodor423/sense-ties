@@ -20,7 +20,7 @@ export function Layout({ children }: LayoutProps) {
 
   const navLinks = [
     { to: '/dashboard', label: 'Dashboard', roles: ['Parent', 'Teacher', 'Clinician'] },
-    { to: '/log-meltdown', label: 'Log a Meltdown', roles: ['Parent', 'Teacher', 'Clinician'] },
+    { to: '/log-meltdown', label: 'Log an Event', roles: ['Parent', 'Teacher', 'Clinician'] },
     { to: '/insights', label: 'Insights', roles: ['Parent', 'Teacher', 'Clinician'] },
     { to: '/data', label: 'Data', roles: ['Clinician'] },
     { to: '/settings', label: 'Settings', roles: ['Parent', 'Teacher', 'Clinician'] },

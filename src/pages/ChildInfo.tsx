@@ -69,7 +69,7 @@ export default function ChildInfo() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="rounded-2xl">
                   <CardHeader>
-                    <CardTitle>Meltdown Statistics</CardTitle>
+                    <CardTitle>Statistics</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-4xl font-heading font-bold text-primary">

@@ -158,7 +158,7 @@ export default function LogMeltdown() {
     <ProtectedRoute>
       <Layout>
         <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <h1 className="text-3xl font-heading font-bold mb-8">Log a Meltdown</h1>
+          <h1 className="text-3xl font-heading font-bold mb-8">Log an Event</h1>
 
           {step === 1 && (
             <Card className="rounded-2xl">
