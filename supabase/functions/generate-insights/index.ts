@@ -63,6 +63,7 @@ serve(async (req) => {
 
     if (OPENAI_API_KEY && OPENAI_API_KEY !== "placeholder") {
       // Call ChatGPT API - using gpt-3.5-turbo for universal compatibility
+      console.log(OPENAI_API_KEY);
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -86,6 +87,8 @@ serve(async (req) => {
           max_tokens: 500,
         }),
       });
+
+      console.log(response);
 
       if (!response.ok) {
         const errorText = await response.text();
