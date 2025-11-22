@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { Database } from '@/types/database';
+import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +37,8 @@ export default function Settings() {
   const [sharedUsers, setSharedUsers] = useState<Array<{ id: string; email: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
+  const [saveSensitiveInfo, setSaveSensitiveInfo] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -250,6 +253,52 @@ export default function Settings() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    
+    try {
+      // Delete all user's children (this will cascade delete meltdowns and access records)
+      const { error: childrenError } = await supabase
+        .from('children')
+        .delete()
+        .eq('parent_id', user.user.id);
+
+      if (childrenError) throw childrenError;
+
+      // Delete user's extended profile
+      const { error: profileError } = await supabase
+        .from('users_extended')
+        .delete()
+        .eq('auth_user_id', user.user.id);
+
+      if (profileError) throw profileError;
+
+      // Delete user's role
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .delete()
+        .eq('user_id', user.user.id);
+
+      if (roleError) throw roleError;
+
+      toast.success('All your data has been deleted. Logging out...');
+      
+      // Sign out the user
+      setTimeout(async () => {
+        await signOut();
+        navigate('/');
+      }, 1500);
+    } catch (error: any) {
+      console.error('Error deleting account:', error);
+      toast.error(error.message || 'Failed to delete account data');
+    } finally {
+      setLoading(false);
+      setDeleteAccountDialogOpen(false);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut();
     navigate('/');
@@ -277,7 +326,7 @@ export default function Settings() {
                       <SelectItem value="new">Add New Child</SelectItem>
                       {children.map(child => (
                         <SelectItem key={child.id} value={child.id}>
-                          {child.name}
+                          {child.name} (Age: {child.age})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -370,6 +419,41 @@ export default function Settings() {
             </Card>
           )}
 
+          {user?.role === 'Parent' && (
+            <Card className="rounded-2xl mb-6">
+              <CardHeader>
+                <CardTitle>Data Privacy</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base">Save sensitive information</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Include GPS location and images in meltdown records
+                    </p>
+                  </div>
+                  <Switch
+                    checked={saveSensitiveInfo}
+                    onCheckedChange={setSaveSensitiveInfo}
+                  />
+                </div>
+
+                <div className="border-t pt-4">
+                  <Button
+                    variant="destructive"
+                    onClick={() => setDeleteAccountDialogOpen(true)}
+                    className="w-full rounded-xl"
+                  >
+                    Delete Account
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    This will permanently delete your account and all associated data
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="rounded-2xl">
             <CardContent className="pt-6">
               <Button
@@ -396,6 +480,24 @@ export default function Settings() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteChild} className="bg-destructive text-destructive-foreground">
                 Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={deleteAccountDialogOpen} onOpenChange={setDeleteAccountDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete your account, all children data,
+                and all recorded meltdowns. You will be logged out immediately.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground">
+                Delete Account
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

@@ -140,7 +140,7 @@ export default function LogMeltdown() {
                     <SelectContent>
                       {children.map(child => (
                         <SelectItem key={child.id} value={child.id}>
-                          {child.name}
+                          {child.name} (Age: {child.age})
                         </SelectItem>
                       ))}
                     </SelectContent>
