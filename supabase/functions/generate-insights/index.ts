@@ -85,7 +85,7 @@ serve(async (req) => {
           max_completion_tokens: 500,
         });
 
-        insights = response.choices[0].message.content || "";
+        insights = response.choices[0].message.content;
         console.log("Generated insights successfully");
       } catch (error) {
         console.error("OpenAI API error:", error);
