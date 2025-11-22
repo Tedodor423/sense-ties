@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Volume2, VolumeX, Sun, Moon, Home, TreePine, Users, UserX, Wind, Gauge } from 'lucide-react';
+import { Volume2, VolumeX, Sun, Moon, Home, TreePine, Users, UserX, Wind, Gauge, Camera } from 'lucide-react';
 import { Database } from '@/types/database';
 
 type Child = Database['public']['Tables']['children']['Row'];
@@ -24,6 +24,7 @@ export default function LogMeltdown() {
   const [description, setDescription] = useState('');
   const [intensity, setIntensity] = useState([3]);
   const [loading, setLoading] = useState(false);
+  const cameraInputRef = useState<HTMLInputElement | null>(null)[0];
 
   useEffect(() => {
     if (user) {
@@ -81,6 +82,18 @@ export default function LogMeltdown() {
     setEnvironment(prev =>
       prev.includes(id) ? prev.filter(e => e !== id) : [...prev, id]
     );
+  };
+
+  const handleCameraClick = () => {
+    cameraInputRef?.click();
+  };
+
+  const handleImageCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      console.log('Image captured:', file);
+      // Image captured but not used yet
+    }
   };
 
   const handleSubmit = async () => {
@@ -199,6 +212,26 @@ export default function LogMeltdown() {
                       </button>
                     );
                   })}
+                </div>
+
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    ref={(el) => (cameraInputRef as any) = el}
+                    onChange={handleImageCapture}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleCameraClick}
+                    className="w-full rounded-xl"
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Take Photo
+                  </Button>
                 </div>
 
                 <div className="space-y-2">
