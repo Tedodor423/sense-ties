@@ -82,7 +82,6 @@ serve(async (req) => {
               content: `Generate insights over this data:\n\n${meltdownsText}`,
             },
           ],
-          temperature: 0.7,
           max_completion_tokens: 500,
         });
 
