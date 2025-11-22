@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -24,7 +24,7 @@ export default function LogMeltdown() {
   const [description, setDescription] = useState('');
   const [intensity, setIntensity] = useState([3]);
   const [loading, setLoading] = useState(false);
-  const cameraInputRef = useState<HTMLInputElement | null>(null)[0];
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -85,7 +85,7 @@ export default function LogMeltdown() {
   };
 
   const handleCameraClick = () => {
-    cameraInputRef?.click();
+    cameraInputRef.current?.click();
   };
 
   const handleImageCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -219,7 +219,7 @@ export default function LogMeltdown() {
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    ref={(el) => (cameraInputRef as any) = el}
+                    ref={cameraInputRef}
                     onChange={handleImageCapture}
                     className="hidden"
                   />
