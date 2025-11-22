@@ -88,11 +88,16 @@ export default function LogMeltdown() {
     cameraInputRef.current?.click();
   };
 
-  const handleImageCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVideoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      console.log('Image captured:', file);
-      // Image captured but not used yet
+      console.log('Video captured:', file);
+      toast.success('Video recorded successfully!');
+      // Video captured but not used yet
+    }
+    // Reset input value to allow capturing again
+    if (e.target) {
+      e.target.value = '';
     }
   };
 
@@ -217,10 +222,10 @@ export default function LogMeltdown() {
                 <div className="space-y-2">
                   <input
                     type="file"
-                    accept="image/*"
-                    capture="environment"
+                    accept="video/*"
+                    capture="user"
                     ref={cameraInputRef}
-                    onChange={handleImageCapture}
+                    onChange={handleVideoCapture}
                     className="hidden"
                   />
                   <Button
@@ -230,7 +235,7 @@ export default function LogMeltdown() {
                     className="w-full rounded-xl"
                   >
                     <Camera className="w-4 h-4 mr-2" />
-                    Take Photo
+                    Record Short Video
                   </Button>
                 </div>
 
