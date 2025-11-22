@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
+import logo from '@/assets/logo.svg';
 import {
   Sheet,
   SheetContent,
@@ -48,7 +49,8 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen flex flex-col">
       <header className="border-b bg-card shadow-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/">
+          <Link to="/" className="flex items-center gap-3">
+            <img src={logo} alt="SenseTies Logo" className="h-8 w-8" />
             <h1 className="text-2xl font-heading font-bold text-primary">SenseTies</h1>
           </Link>
 
