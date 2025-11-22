@@ -3,7 +3,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/types/database';
 
-type UserRole = Database['public']['Tables']['users_extended']['Row']['role'];
+type UserRole = Database['public']['Tables']['user_roles']['Row']['role'];
 
 export interface ExtendedUser {
   user: User;
@@ -43,20 +43,28 @@ export function useAuth() {
 
   const fetchUserExtended = async (authUser: User) => {
     try {
-      const { data, error } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users_extended')
         .select('*')
         .eq('auth_user_id', authUser.id)
         .single();
 
-      if (error) throw error;
+      if (userError) throw userError;
 
-      if (data) {
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', authUser.id)
+        .single();
+
+      if (roleError) throw roleError;
+
+      if (userData && roleData) {
         setUser({
           user: authUser,
-          firstName: (data as any).first_name,
-          lastName: (data as any).last_name,
-          role: (data as any).role,
+          firstName: (userData as any).first_name,
+          lastName: (userData as any).last_name,
+          role: roleData.role,
         });
       }
     } catch (error) {

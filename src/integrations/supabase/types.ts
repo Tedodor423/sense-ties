@@ -14,16 +14,170 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      child_access: {
+        Row: {
+          child_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          child_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          child_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "child_access_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      children: {
+        Row: {
+          age: number
+          created_at: string | null
+          id: string
+          name: string
+          parent_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          age: number
+          created_at?: string | null
+          id?: string
+          name: string
+          parent_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          age?: number
+          created_at?: string | null
+          id?: string
+          name?: string
+          parent_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      meltdowns: {
+        Row: {
+          child_id: string
+          created_at: string | null
+          description: string | null
+          environment_description: string | null
+          environment_trigger: string | null
+          id: string
+          meltdown_level: number
+          noise_level: string | null
+          timestamp: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          child_id: string
+          created_at?: string | null
+          description?: string | null
+          environment_description?: string | null
+          environment_trigger?: string | null
+          id?: string
+          meltdown_level: number
+          noise_level?: string | null
+          timestamp?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          child_id?: string
+          created_at?: string | null
+          description?: string | null
+          environment_description?: string | null
+          environment_trigger?: string | null
+          id?: string
+          meltdown_level?: number
+          noise_level?: string | null
+          timestamp?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meltdowns_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      users_extended: {
+        Row: {
+          auth_user_id: string
+          created_at: string | null
+          first_name: string
+          last_name: string
+        }
+        Insert: {
+          auth_user_id: string
+          created_at?: string | null
+          first_name: string
+          last_name: string
+        }
+        Update: {
+          auth_user_id?: string
+          created_at?: string | null
+          first_name?: string
+          last_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "Parent" | "Teacher" | "Clinician"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +304,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["Parent", "Teacher", "Clinician"],
+    },
   },
 } as const

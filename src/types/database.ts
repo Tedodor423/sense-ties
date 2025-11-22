@@ -98,19 +98,39 @@ export type Database = {
           auth_user_id: string
           first_name: string
           last_name: string
-          role: 'Parent' | 'Teacher' | 'Clinician'
+          created_at: string
         }
         Insert: {
           auth_user_id: string
           first_name: string
           last_name: string
-          role: 'Parent' | 'Teacher' | 'Clinician'
+          created_at?: string
         }
         Update: {
           auth_user_id?: string
           first_name?: string
           last_name?: string
+          created_at?: string
+        }
+      }
+      user_roles: {
+        Row: {
+          id: string
+          user_id: string
+          role: 'Parent' | 'Teacher' | 'Clinician'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          role: 'Parent' | 'Teacher' | 'Clinician'
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
           role?: 'Parent' | 'Teacher' | 'Clinician'
+          created_at?: string
         }
       }
     }

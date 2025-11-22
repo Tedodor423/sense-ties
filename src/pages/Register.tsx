@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { Layout } from '@/components/Layout';
 import { Database } from '@/types/database';
 
-type UserRole = Database['public']['Tables']['users_extended']['Row']['role'];
+type UserRole = Database['public']['Tables']['user_roles']['Row']['role'];
 
 export default function Register() {
   const navigate = useNavigate();
@@ -26,26 +26,20 @@ export default function Register() {
     setLoading(true);
 
     try {
-      // Sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            role: role,
+          },
+          emailRedirectTo: `${window.location.origin}/`,
+        },
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('No user returned from signup');
-
-      // Create extended user profile
-      const { error: profileError } = await supabase
-        .from('users_extended')
-        .insert({
-          auth_user_id: authData.user.id,
-          first_name: firstName,
-          last_name: lastName,
-          role: role,
-        } as any);
-
-      if (profileError) throw profileError;
+      if (error) throw error;
 
       toast.success('Account created successfully!');
       navigate('/dashboard');
