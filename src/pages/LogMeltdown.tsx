@@ -106,6 +106,23 @@ export default function LogMeltdown() {
 
       toast.success('Meltdown logged successfully!');
       
+      // Generate insights for this child
+      try {
+        console.log('Generating insights for child:', selectedChildId);
+        const { error: insightsError } = await supabase.functions.invoke('generate-insights', {
+          body: { child_id: selectedChildId }
+        });
+        
+        if (insightsError) {
+          console.error('Error generating insights:', insightsError);
+          toast.error('Failed to generate insights, but meltdown was logged');
+        } else {
+          console.log('Insights generated successfully');
+        }
+      } catch (insightsErr) {
+        console.error('Error calling insights function:', insightsErr);
+      }
+      
       // Reset form
       setStep(1);
       setSelectedChildId('');
