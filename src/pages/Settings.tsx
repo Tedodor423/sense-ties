@@ -89,17 +89,18 @@ export default function Settings() {
 
       if (error) throw error;
 
-      // Fetch user emails
-      const userIds = (data || []).map((d: any) => d.user_id);
-      const { data: authUsers } = await supabase.auth.admin.listUsers();
-      
-      const usersWithEmails = (data || []).map((access: any) => {
-        const authUser = authUsers?.users.find((u: any) => u.id === access.user_id);
-        return {
-          id: access.id,
-          email: authUser?.email || 'Unknown',
-        };
-      });
+      // Fetch user emails using the database function
+      const usersWithEmails = await Promise.all(
+        (data || []).map(async (access: any) => {
+          const { data: email } = await supabase.rpc('get_user_email_by_id', {
+            _user_id: access.user_id
+          });
+          return {
+            id: access.id,
+            email: email || 'Unknown',
+          };
+        })
+      );
 
       setSharedUsers(usersWithEmails);
     } catch (error) {
@@ -158,19 +159,23 @@ export default function Settings() {
     setLoading(true);
 
     try {
-      // Find user by email
-      const { data: authUsers } = await supabase.auth.admin.listUsers();
-      const targetUser = authUsers?.users.find((u: any) => u.email === shareEmail);
+      // Find user by email using the database function
+      const { data: targetUserId, error: lookupError } = await supabase.rpc('get_user_id_by_email', {
+        _email: shareEmail
+      });
 
-      if (!targetUser) {
+      if (lookupError) throw lookupError;
+
+      if (!targetUserId) {
         toast.error('User not found with this email');
+        setLoading(false);
         return;
       }
 
       // Add access
       const { error } = await supabase.from('child_access').insert({
         child_id: selectedChildId,
-        user_id: targetUser.id,
+        user_id: targetUserId,
       } as any);
 
       if (error) throw error;
