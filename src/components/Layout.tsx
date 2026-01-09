@@ -4,6 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import logo from '@/assets/logo.svg';
+import logo_long from '@/assets/logo.png';
+
 import {
   Sheet,
   SheetContent,
