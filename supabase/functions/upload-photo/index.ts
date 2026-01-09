@@ -48,6 +48,40 @@ serve(async (req) => {
       );
     }
 
+    // Validate childId is provided and is a valid UUID
+    if (!childId) {
+      return new Response(
+        JSON.stringify({ error: 'childId is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(childId)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid childId format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // AUTHORIZATION CHECK: Verify user has access to this child
+    // User must be the parent OR have a child_access record
+    const { data: childData, error: childError } = await supabaseClient
+      .from('children')
+      .select('id')
+      .eq('id', childId)
+      .single();
+
+    if (childError || !childData) {
+      console.error('Child access denied for user:', user.id, 'child:', childId);
+      return new Response(
+        JSON.stringify({ error: 'Access denied to this child' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Child access verified for child:', childId);
+
     console.log('Uploading file:', file.name, 'Size:', file.size, 'Type:', file.type);
 
     // Get Backblaze credentials
