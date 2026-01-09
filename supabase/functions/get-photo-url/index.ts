@@ -49,6 +49,50 @@ serve(async (req) => {
 
     console.log('Generating signed URLs for:', pathsToSign);
 
+    // AUTHORIZATION CHECK: Verify user has access to all requested photos
+    // Path format: userId/childId/timestamp-uuid.ext
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const childIdsToCheck = new Set<string>();
+
+    for (const path of pathsToSign) {
+      const pathParts = path.split('/');
+      if (pathParts.length < 2) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid file path format' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      const childId = pathParts[1];
+      if (!uuidRegex.test(childId)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid childId in file path' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      childIdsToCheck.add(childId);
+    }
+
+    // Check access for all unique child IDs using RLS
+    for (const childId of childIdsToCheck) {
+      const { data: childData, error: childError } = await supabaseClient
+        .from('children')
+        .select('id')
+        .eq('id', childId)
+        .single();
+
+      if (childError || !childData) {
+        console.error('Photo access denied for user:', user.id, 'child:', childId);
+        return new Response(
+          JSON.stringify({ error: 'Access denied to requested photo(s)' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    console.log('Access verified for', childIdsToCheck.size, 'child(ren)');
+
     // Get Backblaze credentials
     const keyId = Deno.env.get('B2_KEY_ID');
     const applicationKey = Deno.env.get('B2_APPLICATION_KEY');
