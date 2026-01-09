@@ -15,7 +15,7 @@ import {
   Volume2, Eye, Wind, Users, Home, TreePine, MapPin, Camera, Image,
   RefreshCw, Shuffle, Hand, Ban, MessageSquare, Zap, Clock, Smartphone,
   Brain, HelpCircle, Battery, Utensils, Thermometer, AlertCircle, Plus,
-  Sofa, Grip, Heart, Gamepad2, Calendar, Wind as Breathing, Gift, Hourglass, Check,
+  Sofa, Grip, ToyBrick, Gamepad2, Calendar, Wind as Breathing, Gift, Hourglass, Check,
   User, ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { Database } from '@/types/database';
@@ -67,7 +67,7 @@ const DURATION_OPTIONS = [
 const RESOLUTION_OPTIONS = [
   { id: 'sensory_break', label: 'Sensory break / quiet space', icon: Sofa },
   { id: 'deep_pressure', label: 'Deep pressure (hug)', icon: Grip },
-  { id: 'comfort_item', label: 'Favourite (comfort) item', icon: Heart },
+  { id: 'comfort_item', label: 'Favourite (comfort) item', icon: ToyBrick },
   { id: 'distraction', label: 'Distraction (change of activity)', icon: Gamepad2 },
   { id: 'visual_support', label: 'Visual support (schedule, timer, first–then)', icon: Calendar },
   { id: 'breathing', label: 'Breathing / calming exercises', icon: Breathing },
@@ -295,25 +295,27 @@ export default function LogMeltdown() {
     label, 
     icon: Icon, 
     selected, 
-    onClick 
+    onClick,
+    compact = false
   }: { 
     id: string; 
     label: string; 
     icon: any; 
     selected: boolean; 
     onClick: () => void;
+    compact?: boolean;
   }) => (
     <button
       type="button"
       onClick={onClick}
-      className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 text-left ${
+      className={`${compact ? 'p-3 rounded-lg' : 'p-4 rounded-xl'} border-2 transition-all flex items-center gap-2 text-left ${
         selected
           ? 'border-primary bg-primary/10'
           : 'border-border hover:border-primary/50'
       }`}
     >
-      <Icon className="w-5 h-5 flex-shrink-0" />
-      <span className="text-sm font-medium">{label}</span>
+      <Icon className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} flex-shrink-0`} />
+      <span className={`${compact ? 'text-xs' : 'text-sm'} font-medium`}>{label}</span>
     </button>
   );
 
@@ -390,7 +392,7 @@ export default function LogMeltdown() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Location (address)</Label>
+                  <Label>Location</Label>
                   <Input
                     placeholder="Enter location..."
                     value={location}
@@ -401,27 +403,23 @@ export default function LogMeltdown() {
 
                 <div className="space-y-3">
                   <Label>Select all that apply</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {ENVIRONMENT_OPTIONS.map(option => (
                       <MultiSelectButton
                         key={option.id}
                         {...option}
                         selected={environmentFactors.includes(option.id)}
                         onClick={() => toggleOption(option.id, environmentFactors, setEnvironmentFactors)}
+                        compact
                       />
                     ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Location type</Label>
-                  <div className="grid grid-cols-2 gap-3">
                     {LOCATION_OPTIONS.map(option => (
                       <MultiSelectButton
                         key={option.id}
                         {...option}
                         selected={locationInOut === option.id}
                         onClick={() => handleLocationInOut(option.id)}
+                        compact
                       />
                     ))}
                   </div>
@@ -483,13 +481,14 @@ export default function LogMeltdown() {
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <Label>What was {selectedChild?.name || 'the child'} doing just before?</Label>
-                  <div className="grid gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {PRECEDING_OPTIONS.map(option => (
                       <MultiSelectButton
                         key={option.id}
                         {...option}
                         selected={precedingActivities.includes(option.id)}
                         onClick={() => toggleOption(option.id, precedingActivities, setPrecedingActivities)}
+                        compact
                       />
                     ))}
                   </div>
@@ -497,13 +496,14 @@ export default function LogMeltdown() {
 
                 <div className="space-y-3">
                   <Label>Was {selectedChild?.name || 'the child'} feeling:</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2">
                     {FEELING_OPTIONS.map(option => (
                       <MultiSelectButton
                         key={option.id}
                         {...option}
                         selected={childState.includes(option.id)}
                         onClick={() => toggleOption(option.id, childState, setChildState)}
+                        compact
                       />
                     ))}
                   </div>
@@ -548,7 +548,10 @@ export default function LogMeltdown() {
                     max={5}
                     min={1}
                     step={1}
-                    className="py-4"
+                    className="py-4 intensity-slider"
+                    style={{
+                      '--slider-color': `hsl(${210 - (intensity[0] - 1) * 30}, ${70 + (intensity[0] - 1) * 5}%, ${55 - (intensity[0] - 1) * 5}%)`
+                    } as React.CSSProperties}
                   />
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>1 - Mild</span>
@@ -556,43 +559,42 @@ export default function LogMeltdown() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Date and Time</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date and Time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={eventDateTime}
+                      onChange={(e) => setEventDateTime(e.target.value)}
+                      className="rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Duration</Label>
+                    <Select value={duration} onValueChange={setDuration}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DURATION_OPTIONS.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {duration === 'custom' && (
                   <Input
-                    type="datetime-local"
-                    value={eventDateTime}
-                    onChange={(e) => setEventDateTime(e.target.value)}
+                    placeholder="Enter duration (e.g., 45min, 1 hour)"
+                    value={customDuration}
+                    onChange={(e) => setCustomDuration(e.target.value)}
                     className="rounded-xl"
                   />
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Duration</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {DURATION_OPTIONS.map(option => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setDuration(option.value)}
-                        className={`p-3 rounded-xl border-2 transition-all text-sm font-medium ${
-                          duration === option.value
-                            ? 'border-primary bg-primary/10'
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                  {duration === 'custom' && (
-                    <Input
-                      placeholder="Enter duration (e.g., 45min, 1 hour)"
-                      value={customDuration}
-                      onChange={(e) => setCustomDuration(e.target.value)}
-                      className="rounded-xl mt-2"
-                    />
-                  )}
-                </div>
+                )}
 
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => setStep(3)} className="rounded-xl">
