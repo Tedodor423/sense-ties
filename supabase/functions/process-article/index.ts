@@ -239,20 +239,69 @@ async function extractTextFromFile(blob: Blob, filename: string): Promise<string
   }
 
   if (lowerName.endsWith('.pdf')) {
-    // Basic PDF text extraction
-    const arrayBuffer = await blob.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const text = new TextDecoder('utf-8', { fatal: false }).decode(uint8Array);
+    // Memory-conscious PDF text extraction (best-effort)
+    // Scans bytes for literal strings within ( ... ) which often contain PDF text.
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const decoder = new TextDecoder('latin1', { fatal: false });
 
-    const textMatches = text.match(/\((.*?)\)/g) || [];
-    const extractedText = textMatches
-      .map(m => m.slice(1, -1))
-      .filter(t => t.length > 2 && /[a-zA-Z]/.test(t))
-      .join(' ');
+    const parts: string[] = [];
+    let buf: number[] = [];
+    let inParen = false;
+    let escaped = false;
+    let totalChars = 0;
+    const MAX_EXTRACTED_CHARS = 250_000; // safety cap to prevent memory blowups
 
-    return extractedText
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '')
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
+
+      if (!inParen) {
+        if (b === 0x28) { // '('
+          inParen = true;
+          escaped = false;
+          buf = [];
+        }
+        continue;
+      }
+
+      // inParen
+      if (escaped) {
+        buf.push(b);
+        escaped = false;
+        continue;
+      }
+
+      if (b === 0x5c) { // '\\'
+        escaped = true;
+        continue;
+      }
+
+      if (b === 0x29) { // ')'
+        if (buf.length > 2) {
+          const s = decoder.decode(new Uint8Array(buf));
+          if (/[a-zA-Z]/.test(s)) {
+            parts.push(s);
+            totalChars += s.length;
+            if (totalChars >= MAX_EXTRACTED_CHARS) break;
+          }
+        }
+        inParen = false;
+        buf = [];
+        continue;
+      }
+
+      // Skip obvious binary noise
+      if (b === 0x00) continue;
+      buf.push(b);
+
+      // Prevent pathological long strings
+      if (buf.length > 5000) {
+        inParen = false;
+        buf = [];
+      }
+    }
+
+    return parts
+      .join(' ')
       .replace(/\s+/g, ' ')
       .trim();
   }
