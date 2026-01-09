@@ -1,21 +1,33 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Database } from '@/types/database';
+import { Tables } from '@/integrations/supabase/types';
 import { format } from 'date-fns';
-import { PlusCircle, Lightbulb } from 'lucide-react';
-type Child = Database['public']['Tables']['children']['Row'];
-type Meltdown = Database['public']['Tables']['meltdowns']['Row'];
+import { PlusCircle, Lightbulb, MapPin, Gauge, Calendar, ImageIcon } from 'lucide-react';
+import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
+
+type Child = Tables<'children'>;
+type Meltdown = Tables<'meltdowns'>;
 
 export default function ChildInfo() {
   const { childId } = useParams<{ childId: string }>();
   const [child, setChild] = useState<Child | null>(null);
   const [meltdowns, setMeltdowns] = useState<Meltdown[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Get all photo paths from the latest 5 meltdowns
+  const latestMeltdowns = meltdowns.slice(0, 5);
+  const allPhotoPaths = useMemo(() => {
+    return latestMeltdowns
+      .flatMap(m => m.photos || [])
+      .filter(Boolean) as string[];
+  }, [latestMeltdowns]);
+
+  const { signedUrls, loading: photosLoading } = useSignedPhotoUrls(allPhotoPaths);
 
   useEffect(() => {
     if (childId) {
@@ -27,7 +39,6 @@ export default function ChildInfo() {
     if (!childId) return;
 
     try {
-      // Fetch child info
       const { data: childData, error: childError } = await supabase
         .from('children')
         .select('*')
@@ -37,7 +48,6 @@ export default function ChildInfo() {
       if (childError) throw childError;
       setChild(childData);
 
-      // Fetch meltdowns
       const { data: meltdownData, error: meltdownError } = await supabase
         .from('meltdowns')
         .select('*')
@@ -83,7 +93,7 @@ export default function ChildInfo() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <Card className="rounded-2xl">
                   <CardHeader>
                     <CardTitle>Statistics</CardTitle>
@@ -122,6 +132,69 @@ export default function ChildInfo() {
                   </Card>
                 )}
               </div>
+
+              {/* Recent Meltdowns Section */}
+              {latestMeltdowns.length > 0 && (
+                <div className="space-y-4">
+                  <h2 className="text-xl font-heading font-semibold">Recent Events</h2>
+                  <div className="grid gap-4">
+                    {latestMeltdowns.map((meltdown) => {
+                      const firstPhoto = meltdown.photos?.[0];
+                      const photoUrl = firstPhoto ? signedUrls.get(firstPhoto) : null;
+
+                      return (
+                        <Card key={meltdown.id} className="rounded-2xl overflow-hidden">
+                          <div className="flex flex-col sm:flex-row">
+                            {/* Photo Section */}
+                            <div className="sm:w-32 sm:h-32 w-full h-40 bg-muted flex-shrink-0">
+                              {photoUrl ? (
+                                <img
+                                  src={photoUrl}
+                                  alt="Meltdown context"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : photosLoading && firstPhoto ? (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                                </div>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                  <ImageIcon className="h-8 w-8" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Info Section */}
+                            <CardContent className="flex-1 p-4">
+                              <div className="flex flex-wrap gap-4 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <span>{format(new Date(meltdown.timestamp), 'MMM d, yyyy h:mm a')}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Gauge className="h-4 w-4 text-muted-foreground" />
+                                  <span>Intensity: <strong>{meltdown.meltdown_level}/5</strong></span>
+                                </div>
+                                {meltdown.location && (
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                    <span>{meltdown.location}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {meltdown.environment_trigger && (
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                  Trigger: {meltdown.environment_trigger}
+                                </p>
+                              )}
+                            </CardContent>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <p className="text-center text-muted-foreground">Child not found</p>
