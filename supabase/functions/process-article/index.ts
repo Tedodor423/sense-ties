@@ -341,13 +341,18 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
   const chunks: string[] = [];
   let start = 0;
 
+  // Prevent infinite loops when we reach the end of the text.
   while (start < text.length) {
     const end = Math.min(start + chunkSize, text.length);
     chunks.push(text.slice(start, end));
-    start = end - overlap;
 
-    if (start >= text.length) break;
+    // If we consumed the rest of the text, stop.
+    if (end === text.length) break;
+
+    // Advance with overlap.
+    start = Math.max(0, end - overlap);
   }
 
-  return chunks.filter(c => c.trim().length > 50);
+  return chunks.filter((c) => c.trim().length > 50);
 }
+
