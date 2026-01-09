@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Database } from '@/types/database';
 import { format } from 'date-fns';
-
+import { PlusCircle, Lightbulb } from 'lucide-react';
 type Child = Database['public']['Tables']['children']['Row'];
 type Meltdown = Database['public']['Tables']['meltdowns']['Row'];
 
@@ -64,7 +65,23 @@ export default function ChildInfo() {
             </div>
           ) : child ? (
             <>
-              <h1 className="text-3xl font-heading font-bold mb-8">{child.name}'s Profile</h1>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+                <h1 className="text-3xl font-heading font-bold">{child.name}'s Profile</h1>
+                <div className="flex gap-3">
+                  <Button asChild>
+                    <Link to="/log-meltdown">
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Log an event
+                    </Link>
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link to="/insights">
+                      <Lightbulb className="h-4 w-4 mr-2" />
+                      Insights
+                    </Link>
+                  </Button>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="rounded-2xl">
