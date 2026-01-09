@@ -15,6 +15,7 @@ import { Database } from '@/types/database';
 import { Switch } from '@/components/ui/switch';
 import { childSchema, shareEmailSchema, validateForm } from '@/lib/validation';
 import { ArticleManagement } from '@/components/ArticleManagement';
+import { AIPromptEditor } from '@/components/AIPromptEditor';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -476,9 +477,12 @@ export default function Settings() {
           </Card>
           )}
 
-          {/* Admin Section: Article Management */}
+          {/* Admin Section: Article Management & AI Prompt */}
           {user?.role === 'Admin' && (
-            <ArticleManagement />
+            <div className="space-y-6">
+              <ArticleManagement />
+              <AIPromptEditor />
+            </div>
           )}
 
           <Card className="rounded-2xl">
