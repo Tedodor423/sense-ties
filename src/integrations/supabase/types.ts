@@ -76,37 +76,58 @@ export type Database = {
       meltdowns: {
         Row: {
           child_id: string
+          child_state: string[] | null
+          confidence_level: number | null
           created_at: string | null
           description: string | null
+          duration: string | null
           environment_description: string | null
+          environment_factors: string[] | null
           environment_trigger: string | null
           id: string
+          location: string | null
           meltdown_level: number
           noise_level: string | null
+          preceding_activities: string[] | null
+          resolution_strategies: string[] | null
           timestamp: string | null
           updated_at: string | null
         }
         Insert: {
           child_id: string
+          child_state?: string[] | null
+          confidence_level?: number | null
           created_at?: string | null
           description?: string | null
+          duration?: string | null
           environment_description?: string | null
+          environment_factors?: string[] | null
           environment_trigger?: string | null
           id?: string
+          location?: string | null
           meltdown_level: number
           noise_level?: string | null
+          preceding_activities?: string[] | null
+          resolution_strategies?: string[] | null
           timestamp?: string | null
           updated_at?: string | null
         }
         Update: {
           child_id?: string
+          child_state?: string[] | null
+          confidence_level?: number | null
           created_at?: string | null
           description?: string | null
+          duration?: string | null
           environment_description?: string | null
+          environment_factors?: string[] | null
           environment_trigger?: string | null
           id?: string
+          location?: string | null
           meltdown_level?: number
           noise_level?: string | null
+          preceding_activities?: string[] | null
+          resolution_strategies?: string[] | null
           timestamp?: string | null
           updated_at?: string | null
         }
