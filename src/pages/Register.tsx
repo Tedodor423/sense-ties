@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,13 +13,13 @@ import { Database } from '@/types/database';
 type UserRole = Database['public']['Tables']['user_roles']['Row']['role'];
 
 export default function Register() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [role, setRole] = useState<UserRole>('Parent');
   const [loading, setLoading] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,16 +39,59 @@ export default function Register() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('already registered') || error.message.includes('already been registered')) {
+          toast.error('Email already registered. Please login instead.');
+        } else {
+          toast.error(error.message || 'Failed to create account');
+        }
+        return;
+      }
 
-      toast.success('Account created successfully!');
-      navigate('/dashboard');
+      setShowConfirmation(true);
     } catch (error: any) {
       toast.error(error.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }
   };
+
+  if (showConfirmation) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-16 flex items-center justify-center min-h-[calc(100vh-80px)]">
+          <Card className="w-full max-w-md shadow-lg rounded-2xl text-center">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-3xl font-heading">Check Your Email</CardTitle>
+              <CardDescription>We've sent you a confirmation link</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-muted-foreground">
+                A confirmation email has been sent to <strong>{email}</strong>. 
+                Please click the link in the email to verify your account.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Didn't receive the email? Check your spam folder or{' '}
+                <button 
+                  onClick={() => setShowConfirmation(false)} 
+                  className="text-primary hover:underline font-semibold"
+                >
+                  try again
+                </button>
+              </p>
+              <div className="pt-4">
+                <Link to="/login">
+                  <Button variant="outline" className="w-full rounded-xl">
+                    Back to Login
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
