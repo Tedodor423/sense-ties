@@ -14,6 +14,7 @@ import { X } from 'lucide-react';
 import { Database } from '@/types/database';
 import { Switch } from '@/components/ui/switch';
 import { childSchema, shareEmailSchema, validateForm } from '@/lib/validation';
+import { ArticleManagement } from '@/components/ArticleManagement';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -472,7 +473,12 @@ export default function Settings() {
                   </p>
                 </div>
               </CardContent>
-            </Card>
+          </Card>
+          )}
+
+          {/* Admin Section: Article Management */}
+          {user?.role === 'Admin' && (
+            <ArticleManagement />
           )}
 
           <Card className="rounded-2xl">

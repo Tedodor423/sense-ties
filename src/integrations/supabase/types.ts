@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      article_embeddings: {
+        Row: {
+          article_id: string
+          chunk_index: number
+          chunk_text: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+        }
+        Insert: {
+          article_id: string
+          chunk_index: number
+          chunk_text: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+        }
+        Update: {
+          article_id?: string
+          chunk_index?: number
+          chunk_text?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "article_embeddings_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "scientific_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       child_access: {
         Row: {
           child_id: string
@@ -51,6 +86,7 @@ export type Database = {
           insights: string | null
           name: string
           parent_id: string
+          rolling_summary: string | null
           updated_at: string | null
         }
         Insert: {
@@ -60,6 +96,7 @@ export type Database = {
           insights?: string | null
           name: string
           parent_id: string
+          rolling_summary?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -69,9 +106,93 @@ export type Database = {
           insights?: string | null
           name?: string
           parent_id?: string
+          rolling_summary?: string | null
           updated_at?: string | null
         }
         Relationships: []
+      }
+      insight_jobs: {
+        Row: {
+          child_id: string
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          job_type: string
+          meltdown_id: string | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          child_id: string
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_type: string
+          meltdown_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          child_id?: string
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          job_type?: string
+          meltdown_id?: string | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_jobs_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "children"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insight_jobs_meltdown_id_fkey"
+            columns: ["meltdown_id"]
+            isOneToOne: false
+            referencedRelation: "meltdowns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meltdown_embeddings: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          id: string
+          meltdown_id: string
+          summary_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          meltdown_id: string
+          summary_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          meltdown_id?: string
+          summary_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meltdown_embeddings_meltdown_id_fkey"
+            columns: ["meltdown_id"]
+            isOneToOne: true
+            referencedRelation: "meltdowns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meltdowns: {
         Row: {
@@ -143,6 +264,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scientific_articles: {
+        Row: {
+          chunk_count: number | null
+          created_at: string | null
+          error_message: string | null
+          file_path: string
+          filename: string
+          id: string
+          status: string
+          title: string
+          updated_at: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          chunk_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          file_path: string
+          filename: string
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          chunk_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          file_path?: string
+          filename?: string
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
+          uploaded_by?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
