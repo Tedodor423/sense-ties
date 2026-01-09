@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 import logo from '@/assets/logo.svg';
-import logo_long from '@/assets/logo.png';
 
 import {
   Sheet,
@@ -52,8 +51,8 @@ export function Layout({ children }: LayoutProps) {
       <header className="border-b bg-card shadow-sm">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <img src={logo_long} alt="SenseTies Logo" className="h-8 w-8" />
-            {/* <h1 className="text-2xl font-heading font-bold text-primary">SenseTies</h1> */}
+            <img src={logo} alt="SenseTies Logo" className="h-8 w-24" />
+            <h1 className="text-2xl font-heading font-bold text-primary">SenseTies</h1>
           </Link>
 
           {user && (
