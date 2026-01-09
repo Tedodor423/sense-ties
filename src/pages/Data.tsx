@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Tables } from '@/integrations/supabase/types';
 import { format } from 'date-fns';
-import { ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { ImageIcon, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
 
 type Child = Tables<'children'>;
@@ -54,7 +55,6 @@ function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
         <TableRow>
           <TableCell colSpan={8} className="bg-muted/30 p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              {/* Child State */}
               {meltdown.child_state && meltdown.child_state.length > 0 && (
                 <div>
                   <span className="text-muted-foreground font-medium">Child State:</span>
@@ -66,7 +66,6 @@ function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
                 </div>
               )}
 
-              {/* Preceding Activities */}
               {meltdown.preceding_activities && meltdown.preceding_activities.length > 0 && (
                 <div>
                   <span className="text-muted-foreground font-medium">Preceding Activities:</span>
@@ -78,7 +77,6 @@ function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
                 </div>
               )}
 
-              {/* Environment Factors */}
               {meltdown.environment_factors && meltdown.environment_factors.length > 0 && (
                 <div>
                   <span className="text-muted-foreground font-medium">Environment Factors:</span>
@@ -90,7 +88,6 @@ function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
                 </div>
               )}
 
-              {/* Resolution Strategies */}
               {meltdown.resolution_strategies && meltdown.resolution_strategies.length > 0 && (
                 <div>
                   <span className="text-muted-foreground font-medium">Resolution Strategies:</span>
@@ -102,7 +99,6 @@ function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
                 </div>
               )}
 
-              {/* Confidence Level */}
               {meltdown.confidence_level && (
                 <div>
                   <span className="text-muted-foreground font-medium">Confidence Level:</span>
@@ -110,7 +106,6 @@ function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
                 </div>
               )}
 
-              {/* Environment Description */}
               {meltdown.environment_description && (
                 <div className="md:col-span-2">
                   <span className="text-muted-foreground font-medium">Environment Description:</span>
@@ -118,7 +113,6 @@ function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
                 </div>
               )}
 
-              {/* Description */}
               {meltdown.description && (
                 <div className="md:col-span-2 lg:col-span-3">
                   <span className="text-muted-foreground font-medium">Description:</span>
@@ -126,7 +120,6 @@ function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
                 </div>
               )}
 
-              {/* Photos */}
               {meltdown.photos && meltdown.photos.length > 0 && (
                 <div className="md:col-span-2 lg:col-span-3">
                   <span className="text-muted-foreground font-medium">Photos:</span>
@@ -218,11 +211,69 @@ export default function Data() {
     }
   };
 
+  const exportToCsv = () => {
+    if (meltdowns.length === 0) return;
+
+    const selectedChild = children.find(c => c.id === selectedChildId);
+    const headers = [
+      'Date & Time',
+      'Intensity',
+      'Location',
+      'Duration',
+      'Trigger',
+      'Noise Level',
+      'Child State',
+      'Preceding Activities',
+      'Environment Factors',
+      'Environment Description',
+      'Resolution Strategies',
+      'Confidence Level',
+      'Description'
+    ];
+
+    const rows = meltdowns.map(m => [
+      format(new Date(m.timestamp), 'yyyy-MM-dd HH:mm:ss'),
+      `${m.meltdown_level}/5`,
+      m.location || '',
+      m.duration || '',
+      m.environment_trigger || '',
+      m.noise_level || '',
+      (m.child_state || []).join('; '),
+      (m.preceding_activities || []).join('; '),
+      (m.environment_factors || []).join('; '),
+      m.environment_description || '',
+      (m.resolution_strategies || []).join('; '),
+      m.confidence_level ? `${m.confidence_level}/5` : '',
+      m.description || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${selectedChild?.name || 'child'}_meltdowns_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <ProtectedRoute allowedRoles={['Clinician']}>
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-heading font-bold mb-8">Data</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <h1 className="text-3xl font-heading font-bold">Data</h1>
+            {selectedChildId && meltdowns.length > 0 && (
+              <Button onClick={exportToCsv} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            )}
+          </div>
 
           <Card className="rounded-2xl mb-6">
             <CardHeader>
