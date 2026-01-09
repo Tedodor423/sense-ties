@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Layout } from '@/components/Layout';
 import { Separator } from '@/components/ui/separator';
 import { Database } from '@/types/database';
+import { registerSchema, validateForm } from '@/lib/validation';
 
 type UserRole = Database['public']['Tables']['user_roles']['Row']['role'];
 
@@ -21,20 +22,39 @@ export default function Register() {
   const [role, setRole] = useState<UserRole>('Parent');
   const [loading, setLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+
+    // Validate form data
+    const validation = validateForm(registerSchema, {
+      email: email.trim(),
+      password,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      role,
+    });
+
+    if (!validation.success) {
+      setErrors(validation.errors || {});
+      const firstError = Object.values(validation.errors || {})[0];
+      if (firstError) toast.error(firstError);
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: validation.data!.email,
+        password: validation.data!.password,
         options: {
           data: {
-            first_name: firstName,
-            last_name: lastName,
-            role: role,
+            first_name: validation.data!.firstName,
+            last_name: validation.data!.lastName,
+            role: validation.data!.role,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -125,8 +145,10 @@ export default function Register() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     required
-                    className="rounded-xl"
+                    maxLength={50}
+                    className={`rounded-xl ${errors.firstName ? 'border-destructive' : ''}`}
                   />
+                  {errors.firstName && <p className="text-xs text-destructive">{errors.firstName}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
@@ -136,8 +158,10 @@ export default function Register() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     required
-                    className="rounded-xl"
+                    maxLength={50}
+                    className={`rounded-xl ${errors.lastName ? 'border-destructive' : ''}`}
                   />
+                  {errors.lastName && <p className="text-xs text-destructive">{errors.lastName}</p>}
                 </div>
               </div>
               <div className="space-y-2">
@@ -149,8 +173,10 @@ export default function Register() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="rounded-xl"
+                  maxLength={254}
+                  className={`rounded-xl ${errors.email ? 'border-destructive' : ''}`}
                 />
+                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
@@ -161,8 +187,10 @@ export default function Register() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="rounded-xl"
+                  maxLength={72}
+                  className={`rounded-xl ${errors.password ? 'border-destructive' : ''}`}
                 />
+                {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Account Type</Label>

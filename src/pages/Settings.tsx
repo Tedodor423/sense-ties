@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { Database } from '@/types/database';
 import { Switch } from '@/components/ui/switch';
+import { childSchema, shareEmailSchema, validateForm } from '@/lib/validation';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,8 +133,16 @@ export default function Settings() {
   };
 
   const handleSaveChild = async () => {
-    if (!childName || !childAge) {
-      toast.error('Please fill in all fields');
+    // Validate input
+    const ageNum = parseInt(childAge);
+    const validation = validateForm(childSchema, {
+      name: childName.trim(),
+      age: isNaN(ageNum) ? 0 : ageNum,
+    });
+
+    if (!validation.success) {
+      const firstError = Object.values(validation.errors || {})[0];
+      if (firstError) toast.error(firstError);
       return;
     }
 
@@ -144,8 +153,8 @@ export default function Settings() {
         // Create new child
         const { error } = await supabase.from('children').insert({
           parent_id: user!.user.id,
-          name: childName,
-          age: parseInt(childAge),
+          name: validation.data!.name,
+          age: validation.data!.age,
         } as any);
 
         if (error) throw error;
@@ -155,8 +164,8 @@ export default function Settings() {
         const { error }: any = await supabase
           .from('children')
           .update({
-            name: childName,
-            age: parseInt(childAge),
+            name: validation.data!.name,
+            age: validation.data!.age,
           })
           .eq('id', selectedChildId);
 
@@ -174,8 +183,16 @@ export default function Settings() {
   };
 
   const handleShareChild = async () => {
-    if (!shareEmail || selectedChildId === 'new') {
-      toast.error('Please enter an email address');
+    if (selectedChildId === 'new') {
+      toast.error('Please select a child first');
+      return;
+    }
+
+    // Validate email
+    const validation = validateForm(shareEmailSchema, { email: shareEmail.trim() });
+    if (!validation.success) {
+      const firstError = Object.values(validation.errors || {})[0];
+      if (firstError) toast.error(firstError);
       return;
     }
 
@@ -184,7 +201,7 @@ export default function Settings() {
     try {
       // Find user by email using the database function
       const { data: targetUserId, error: lookupError } = await supabase.rpc('get_user_id_by_email', {
-        _email: shareEmail
+        _email: validation.data!.email
       });
 
       if (lookupError) throw lookupError;
@@ -339,6 +356,7 @@ export default function Settings() {
                     placeholder="Child's name"
                     value={childName}
                     onChange={(e) => setChildName(e.target.value)}
+                    maxLength={100}
                     className="rounded-xl"
                   />
                 </div>
@@ -350,6 +368,8 @@ export default function Settings() {
                     placeholder="Age"
                     value={childAge}
                     onChange={(e) => setChildAge(e.target.value)}
+                    min={1}
+                    max={25}
                     className="rounded-xl"
                   />
                 </div>
@@ -372,6 +392,7 @@ export default function Settings() {
                           placeholder="user@example.com"
                           value={shareEmail}
                           onChange={(e) => setShareEmail(e.target.value)}
+                          maxLength={254}
                           className="rounded-xl"
                         />
                         <Button
