@@ -12,6 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LocationSearch } from '@/components/LocationSearch';
 import { toast } from 'sonner';
+import { meltdownSchema, validateForm } from '@/lib/validation';
 import { 
   Volume2, Eye, Wind, Users, Home, TreePine, MapPin, Camera, Image,
   RefreshCw, Shuffle, Hand, Ban, MessageSquare, Zap, Clock, Smartphone,
@@ -231,6 +232,21 @@ export default function LogMeltdown() {
       return;
     }
 
+    // Validate text inputs
+    const validation = validateForm(meltdownSchema, {
+      location: location || null,
+      environmentDescription: environmentDescription || null,
+      customDuration: duration === 'custom' ? customDuration : null,
+      otherFeeling: otherFeeling || null,
+      otherResolution: otherResolution || null,
+    });
+
+    if (!validation.success) {
+      const firstError = Object.values(validation.errors || {})[0];
+      if (firstError) toast.error(firstError);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -248,16 +264,16 @@ export default function LogMeltdown() {
         setUploadingPhotos(false);
       }
 
-      // Combine child state with other feeling if provided
+      // Combine child state with other feeling if provided (trimmed and limited)
       const finalChildState = [...childState];
       if (otherFeeling.trim()) {
-        finalChildState.push(otherFeeling.trim());
+        finalChildState.push(otherFeeling.trim().slice(0, 100));
       }
 
-      // Combine resolution strategies with other if provided
+      // Combine resolution strategies with other if provided (trimmed and limited)
       const finalResolutions = [...resolutionStrategies];
       if (otherResolution.trim()) {
-        finalResolutions.push(otherResolution.trim());
+        finalResolutions.push(otherResolution.trim().slice(0, 200));
       }
 
       // Combine environment factors with inside/outside
@@ -269,13 +285,13 @@ export default function LogMeltdown() {
       const { error } = await supabase.from('meltdowns').insert({
         child_id: selectedChildId,
         timestamp: new Date(eventDateTime).toISOString(),
-        location: location || null,
+        location: location?.slice(0, 200) || null,
         environment_factors: finalEnvironment.length > 0 ? finalEnvironment : null,
-        environment_description: environmentDescription || null,
+        environment_description: environmentDescription?.slice(0, 2000) || null,
         preceding_activities: precedingActivities.length > 0 ? precedingActivities : null,
         child_state: finalChildState.length > 0 ? finalChildState : null,
         meltdown_level: intensity[0],
-        duration: duration === 'custom' ? customDuration : duration || null,
+        duration: duration === 'custom' ? customDuration?.slice(0, 50) : duration || null,
         resolution_strategies: finalResolutions.length > 0 ? finalResolutions : null,
         confidence_level: confidence[0],
         photos: photoUrls.length > 0 ? photoUrls : null,
@@ -483,8 +499,10 @@ export default function LogMeltdown() {
                     placeholder="Describe the environment..."
                     value={environmentDescription}
                     onChange={(e) => setEnvironmentDescription(e.target.value)}
+                    maxLength={2000}
                     className="rounded-xl"
                   />
+                  <p className="text-xs text-muted-foreground text-right">{environmentDescription.length}/2000</p>
                 </div>
 
                 <div className="space-y-3">

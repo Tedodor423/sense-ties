@@ -7,39 +7,98 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Get and validate authorization header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("Missing authorization header");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { child_id } = await req.json();
     console.log("Generating insights for child:", child_id);
 
-    if (!child_id) {
-      throw new Error("child_id is required");
+    // Validate child_id format
+    if (!child_id || typeof child_id !== "string") {
+      console.error("child_id is required");
+      return new Response(JSON.stringify({ error: "child_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      console.warn("OPENAI_API_KEY not set, using placeholder");
+    if (!UUID_REGEX.test(child_id)) {
+      console.error("Invalid child_id format:", child_id);
+      return new Response(JSON.stringify({ error: "Invalid child_id format" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client with user's auth token to respect RLS
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    // Fetch all meltdowns for this child
+    // Verify user has access to this child (RLS will enforce this)
+    const { data: childAccess, error: accessError } = await userClient
+      .from("children")
+      .select("id, updated_at")
+      .eq("id", child_id)
+      .single();
+
+    if (accessError || !childAccess) {
+      console.error("Child not found or access denied:", accessError?.message);
+      return new Response(JSON.stringify({ error: "Child not found or access denied" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Rate limiting: check if insights were generated in the last 5 minutes
+    if (childAccess.updated_at) {
+      const lastUpdate = new Date(childAccess.updated_at);
+      const minutesSinceUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60);
+      if (minutesSinceUpdate < 5) {
+        console.log("Rate limited: insights generated recently");
+        return new Response(JSON.stringify({ error: "Please wait at least 5 minutes between insight generations" }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Now use service role for the actual operations (after access check)
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch meltdowns for this child (limit to recent 100 for performance)
     const { data: meltdowns, error: fetchError } = await supabase
       .from("meltdowns")
       .select("*")
       .eq("child_id", child_id)
-      .order("timestamp", { ascending: true });
+      .order("timestamp", { ascending: false })
+      .limit(100);
 
     if (fetchError) {
       console.error("Error fetching meltdowns:", fetchError);
-      throw fetchError;
+      return new Response(JSON.stringify({ error: "Failed to fetch data" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log(`Found ${meltdowns?.length || 0} meltdowns for child`);
@@ -61,16 +120,17 @@ serve(async (req) => {
 
     let insights = "-blank-";
 
-    if (1) {
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (OPENAI_API_KEY) {
       try {
         // Initialize OpenAI client
         const client = new OpenAI({
           apiKey: OPENAI_API_KEY,
         });
 
-        // Call OpenAI API using the SDK
+        // Call OpenAI API using the SDK with correct model name
         const response = await client.chat.completions.create({
-          model: "gpt-5-nano",
+          model: "gpt-4o-mini",
           messages: [
             {
               role: "system",
@@ -85,13 +145,14 @@ serve(async (req) => {
         });
 
         insights =
-          response.choices[0].message.content || "No insights generated - " + JSON.stringify(response, null, 2);
+          response.choices[0].message.content || "No insights generated";
         console.log("Generated insights successfully");
       } catch (error) {
         console.error("OpenAI API error:", error);
-        throw new Error(`OpenAI API error: ${error instanceof Error ? error.message : "Unknown error"}`);
+        insights = `Unable to generate AI insights at this time. Data summary: ${meltdowns?.length || 0} events recorded.`;
       }
     } else {
+      console.warn("OPENAI_API_KEY not set");
       insights = `Insights generation is not configured yet. Please add your OpenAI API key to enable AI-powered insights.\n\nData summary: ${meltdowns?.length || 0} events recorded.`;
     }
 
@@ -100,7 +161,10 @@ serve(async (req) => {
 
     if (updateError) {
       console.error("Error updating insights:", updateError);
-      throw updateError;
+      return new Response(JSON.stringify({ error: "Failed to save insights" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("Insights updated successfully for child:", child_id);
@@ -110,7 +174,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Error in generate-insights function:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
+    return new Response(JSON.stringify({ error: "Failed to generate insights" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
