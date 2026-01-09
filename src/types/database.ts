@@ -117,19 +117,19 @@ export type Database = {
         Row: {
           id: string
           user_id: string
-          role: 'Parent' | 'Teacher' | 'Clinician'
+          role: 'Parent' | 'Teacher' | 'Clinician' | 'Admin'
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          role: 'Parent' | 'Teacher' | 'Clinician'
+          role: 'Parent' | 'Teacher' | 'Clinician' | 'Admin'
           created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          role?: 'Parent' | 'Teacher' | 'Clinician'
+          role?: 'Parent' | 'Teacher' | 'Clinician' | 'Admin'
           created_at?: string
         }
       }

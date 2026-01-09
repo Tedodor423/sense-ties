@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.get-photo-url]
 verify_jwt = false
+
+[functions.process-article]
+verify_jwt = true
+
+[functions.process-insight-job]
+verify_jwt = false
