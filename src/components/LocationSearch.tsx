@@ -189,17 +189,16 @@ export function LocationSearch({ value, onChange, placeholder = "Search for a lo
         <Button
           type="button"
           variant="outline"
-          size="icon"
           onClick={getCurrentLocation}
           disabled={isGettingLocation}
           className="rounded-xl shrink-0"
-          title="Use current location"
         >
           {isGettingLocation ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
           ) : (
-            <Navigation className="h-4 w-4" />
+            <Navigation className="h-4 w-4 mr-2" />
           )}
+          Use current location
         </Button>
       </div>
 
