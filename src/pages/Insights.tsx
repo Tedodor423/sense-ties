@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +23,9 @@ interface TriggerData {
 }
 
 export default function Insights() {
+  const [searchParams] = useSearchParams();
+  const childIdFromUrl = searchParams.get('childId');
+  
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>('');
   const [insights, setInsights] = useState<string>('');
@@ -50,7 +54,11 @@ export default function Insights() {
 
       setChildren(data || []);
       if (data && data.length > 0) {
-        setSelectedChildId(data[0].id);
+        // Use child ID from URL if valid, otherwise default to first child
+        const validChildId = childIdFromUrl && data.some(c => c.id === childIdFromUrl) 
+          ? childIdFromUrl 
+          : data[0].id;
+        setSelectedChildId(validChildId);
       }
     } catch (error) {
       console.error('Error fetching children:', error);
