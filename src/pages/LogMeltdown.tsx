@@ -550,7 +550,7 @@ export default function LogMeltdown() {
                     step={1}
                     className="py-4 intensity-slider"
                     style={{
-                      '--slider-color': `hsl(${210 - (intensity[0] - 1) * 30}, ${70 + (intensity[0] - 1) * 5}%, ${55 - (intensity[0] - 1) * 5}%)`
+                      '--slider-color': `hsl(${120 - (intensity[0] - 1) * 30}, 70%, 45%)`
                     } as React.CSSProperties}
                   />
                   <div className="flex justify-between text-sm text-muted-foreground">
