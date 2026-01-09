@@ -166,15 +166,14 @@ serve(async (req) => {
       );
     }
 
-    // Construct the public URL
-    const publicUrl = `https://${bucketName}.${endpoint}/${fileName}`;
-    
-    console.log('Upload successful:', publicUrl);
+    // For private buckets, we store the file path (not a public URL)
+    // The get-photo-url function will generate signed URLs for viewing
+    console.log('Upload successful, file path:', fileName);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        url: publicUrl,
+        url: fileName, // Store path, not public URL
         fileName: fileName
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
