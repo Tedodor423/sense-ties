@@ -20,11 +20,11 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
 
   const navLinks = [
-    { to: '/dashboard', label: 'Dashboard', roles: ['Parent', 'Teacher', 'Clinician'] },
-    { to: '/log-meltdown', label: 'Log an Event', roles: ['Parent', 'Teacher', 'Clinician'] },
-    { to: '/insights', label: 'Insights', roles: ['Parent', 'Teacher', 'Clinician'] },
-    { to: '/data', label: 'Data', roles: ['Clinician'] },
-    { to: '/settings', label: 'Settings', roles: ['Parent', 'Teacher', 'Clinician'] },
+    { to: '/dashboard', label: 'Dashboard', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
+    { to: '/log-meltdown', label: 'Log an Event', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
+    { to: '/insights', label: 'Insights', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
+    { to: '/data', label: 'Data', roles: ['Clinician', 'Admin'] },
+    { to: '/settings', label: 'Settings', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
   ];
 
   const visibleLinks = navLinks.filter(link => 
