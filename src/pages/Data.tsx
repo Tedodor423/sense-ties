@@ -6,11 +6,155 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Database } from '@/types/database';
+import { Badge } from '@/components/ui/badge';
+import { Tables } from '@/integrations/supabase/types';
 import { format } from 'date-fns';
+import { ImageIcon, ChevronDown, ChevronUp } from 'lucide-react';
+import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
 
-type Child = Database['public']['Tables']['children']['Row'];
-type Meltdown = Database['public']['Tables']['meltdowns']['Row'];
+type Child = Tables<'children'>;
+type Meltdown = Tables<'meltdowns'>;
+
+function MeltdownRow({ meltdown }: { meltdown: Meltdown }) {
+  const [expanded, setExpanded] = useState(false);
+  const { signedUrls } = useSignedPhotoUrls(expanded ? meltdown.photos : null);
+
+  return (
+    <>
+      <TableRow 
+        className="cursor-pointer hover:bg-muted/50" 
+        onClick={() => setExpanded(!expanded)}
+      >
+        <TableCell className="font-medium whitespace-nowrap">
+          {format(new Date(meltdown.timestamp), 'PPpp')}
+        </TableCell>
+        <TableCell>
+          <Badge variant={meltdown.meltdown_level >= 4 ? 'destructive' : 'secondary'}>
+            {meltdown.meltdown_level}/5
+          </Badge>
+        </TableCell>
+        <TableCell>{meltdown.location || '-'}</TableCell>
+        <TableCell>{meltdown.duration || '-'}</TableCell>
+        <TableCell>{meltdown.environment_trigger || '-'}</TableCell>
+        <TableCell>{meltdown.noise_level || '-'}</TableCell>
+        <TableCell>
+          {meltdown.photos && meltdown.photos.length > 0 && (
+            <Badge variant="outline" className="gap-1">
+              <ImageIcon className="h-3 w-3" />
+              {meltdown.photos.length}
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell>
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </TableCell>
+      </TableRow>
+      
+      {expanded && (
+        <TableRow>
+          <TableCell colSpan={8} className="bg-muted/30 p-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              {/* Child State */}
+              {meltdown.child_state && meltdown.child_state.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground font-medium">Child State:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {meltdown.child_state.map((state, i) => (
+                      <Badge key={i} variant="outline">{state}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Preceding Activities */}
+              {meltdown.preceding_activities && meltdown.preceding_activities.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground font-medium">Preceding Activities:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {meltdown.preceding_activities.map((activity, i) => (
+                      <Badge key={i} variant="outline">{activity}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Environment Factors */}
+              {meltdown.environment_factors && meltdown.environment_factors.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground font-medium">Environment Factors:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {meltdown.environment_factors.map((factor, i) => (
+                      <Badge key={i} variant="outline">{factor}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Resolution Strategies */}
+              {meltdown.resolution_strategies && meltdown.resolution_strategies.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground font-medium">Resolution Strategies:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {meltdown.resolution_strategies.map((strategy, i) => (
+                      <Badge key={i} variant="outline">{strategy}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Confidence Level */}
+              {meltdown.confidence_level && (
+                <div>
+                  <span className="text-muted-foreground font-medium">Confidence Level:</span>
+                  <p className="mt-1">{meltdown.confidence_level}/5</p>
+                </div>
+              )}
+
+              {/* Environment Description */}
+              {meltdown.environment_description && (
+                <div className="md:col-span-2">
+                  <span className="text-muted-foreground font-medium">Environment Description:</span>
+                  <p className="mt-1">{meltdown.environment_description}</p>
+                </div>
+              )}
+
+              {/* Description */}
+              {meltdown.description && (
+                <div className="md:col-span-2 lg:col-span-3">
+                  <span className="text-muted-foreground font-medium">Description:</span>
+                  <p className="mt-1">{meltdown.description}</p>
+                </div>
+              )}
+
+              {/* Photos */}
+              {meltdown.photos && meltdown.photos.length > 0 && (
+                <div className="md:col-span-2 lg:col-span-3">
+                  <span className="text-muted-foreground font-medium">Photos:</span>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {meltdown.photos.map((photo, i) => {
+                      const url = signedUrls.get(photo);
+                      return (
+                        <div key={i} className="w-24 h-24 bg-muted rounded-lg overflow-hidden">
+                          {url ? (
+                            <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
 
 export default function Data() {
   const { user } = useAuth();
@@ -118,24 +262,17 @@ export default function Data() {
                         <TableRow>
                           <TableHead>Date & Time</TableHead>
                           <TableHead>Intensity</TableHead>
-                          <TableHead>Environment</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Duration</TableHead>
+                          <TableHead>Trigger</TableHead>
                           <TableHead>Noise Level</TableHead>
-                          <TableHead>Description</TableHead>
+                          <TableHead>Photos</TableHead>
+                          <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {meltdowns.map((meltdown) => (
-                          <TableRow key={meltdown.id}>
-                            <TableCell className="font-medium">
-                              {format(new Date(meltdown.timestamp), 'PPpp')}
-                            </TableCell>
-                            <TableCell>{meltdown.meltdown_level}/5</TableCell>
-                            <TableCell>{meltdown.environment_trigger || '-'}</TableCell>
-                            <TableCell>{meltdown.noise_level || '-'}</TableCell>
-                            <TableCell className="max-w-xs truncate">
-                              {meltdown.description || '-'}
-                            </TableCell>
-                          </TableRow>
+                          <MeltdownRow key={meltdown.id} meltdown={meltdown} />
                         ))}
                       </TableBody>
                     </Table>
