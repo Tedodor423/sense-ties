@@ -234,6 +234,20 @@ export default function LogMeltdown() {
     setLoading(true);
 
     try {
+      // Upload photos first if any
+      let photoUrls: string[] = [];
+      if (photos.length > 0) {
+        setUploadingPhotos(true);
+        toast.info('Uploading photos...');
+        try {
+          photoUrls = await uploadPhotos(selectedChildId);
+        } catch (uploadError) {
+          console.error('Photo upload failed:', uploadError);
+          toast.error('Failed to upload photos. Proceeding without photos.');
+        }
+        setUploadingPhotos(false);
+      }
+
       // Combine child state with other feeling if provided
       const finalChildState = [...childState];
       if (otherFeeling.trim()) {
@@ -264,6 +278,7 @@ export default function LogMeltdown() {
         duration: duration === 'custom' ? customDuration : duration || null,
         resolution_strategies: finalResolutions.length > 0 ? finalResolutions : null,
         confidence_level: confidence[0],
+        photos: photoUrls.length > 0 ? photoUrls : null,
       } as any);
 
       if (error) throw error;

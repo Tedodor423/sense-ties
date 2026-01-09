@@ -88,6 +88,7 @@ export type Database = {
           location: string | null
           meltdown_level: number
           noise_level: string | null
+          photos: string[] | null
           preceding_activities: string[] | null
           resolution_strategies: string[] | null
           timestamp: string | null
@@ -107,6 +108,7 @@ export type Database = {
           location?: string | null
           meltdown_level: number
           noise_level?: string | null
+          photos?: string[] | null
           preceding_activities?: string[] | null
           resolution_strategies?: string[] | null
           timestamp?: string | null
@@ -126,6 +128,7 @@ export type Database = {
           location?: string | null
           meltdown_level?: number
           noise_level?: string | null
+          photos?: string[] | null
           preceding_activities?: string[] | null
           resolution_strategies?: string[] | null
           timestamp?: string | null
