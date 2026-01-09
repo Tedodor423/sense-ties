@@ -2,3 +2,6 @@ project_id = "wudwwgobdpimqbgjypvq"
 
 [functions.generate-insights]
 verify_jwt = true
+
+[functions.upload-photo]
+verify_jwt = false

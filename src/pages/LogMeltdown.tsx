@@ -106,6 +106,10 @@ export default function LogMeltdown() {
   const [otherResolution, setOtherResolution] = useState('');
   const [confidence, setConfidence] = useState([3]);
   
+  // Photos
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -181,11 +185,44 @@ export default function LogMeltdown() {
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      toast.success(`${files.length} photo(s) selected`);
+      const newPhotos = Array.from(files);
+      setPhotos(prev => [...prev, ...newPhotos]);
+      toast.success(`${files.length} photo(s) added`);
     }
     if (e.target) {
       e.target.value = '';
     }
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadPhotos = async (childId: string): Promise<string[]> => {
+    if (photos.length === 0) return [];
+    
+    const uploadedUrls: string[] = [];
+    
+    for (const photo of photos) {
+      const formData = new FormData();
+      formData.append('file', photo);
+      formData.append('childId', childId);
+
+      const { data, error } = await supabase.functions.invoke('upload-photo', {
+        body: formData,
+      });
+
+      if (error) {
+        console.error('Photo upload error:', error);
+        throw new Error(`Failed to upload ${photo.name}`);
+      }
+
+      if (data?.url) {
+        uploadedUrls.push(data.url);
+      }
+    }
+
+    return uploadedUrls;
   };
 
   const handleSubmit = async () => {
@@ -435,7 +472,7 @@ export default function LogMeltdown() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <input
                     type="file"
                     accept="image/*"
@@ -453,6 +490,27 @@ export default function LogMeltdown() {
                     <Image className="w-4 h-4 mr-2" />
                     Upload Photos
                   </Button>
+                  
+                  {photos.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mt-3">
+                      {photos.map((photo, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={URL.createObjectURL(photo)}
+                            alt={`Photo ${index + 1}`}
+                            className="w-full h-20 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(index)}
+                            className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
