@@ -241,6 +241,16 @@ async function generateInsights(
   openai: OpenAI, 
   childId: string
 ) {
+  // Fetch configurable system prompt from app_settings
+  const { data: promptSetting } = await supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", "insight_prompt")
+    .single();
+  
+  const systemPrompt = promptSetting?.value || 
+    "You are a supportive child behavior specialist helping parents understand and manage their child's meltdowns. Provide evidence-based, actionable insights.";
+
   // Fetch child data
   const { data: child } = await supabase
     .from("children")
@@ -304,9 +314,7 @@ async function generateInsights(
   ).join('\n\n') || 'No recent events.';
 
   // Generate comprehensive insights
-  const insightPrompt = `You are an expert child behavior analyst. Generate personalized insights for a parent about their child's behavioral patterns.
-
-CHILD'S ROLLING SUMMARY:
+  const insightPrompt = `CHILD'S ROLLING SUMMARY:
 ${child.rolling_summary || 'No summary yet - this is the first analysis.'}
 
 RECENT MELTDOWN EVENTS:
@@ -317,21 +325,12 @@ ${articleContext}
 
 Use these research findings to provide evidence-based recommendations where applicable.` : ''}
 
-Generate insights in 2-3 paragraphs that:
-1. Identify key patterns and triggers
-2. Provide actionable strategies based on the patterns observed
-3. Reference any relevant research findings if available
-4. Offer encouragement and practical next steps
-
-Keep the tone supportive and parent-friendly.`;
+Generate personalized insights for this child's behavioral patterns.`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      { 
-        role: "system", 
-        content: "You are a supportive child behavior specialist helping parents understand and manage their child's meltdowns. Provide evidence-based, actionable insights." 
-      },
+      { role: "system", content: systemPrompt },
       { role: "user", content: insightPrompt }
     ],
     max_tokens: 600,
