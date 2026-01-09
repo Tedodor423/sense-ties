@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { LocationSearch } from '@/components/LocationSearch';
 import { toast } from 'sonner';
 import { 
   Volume2, Eye, Wind, Users, Home, TreePine, MapPin, Camera, Image,
@@ -393,11 +394,10 @@ export default function LogMeltdown() {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label>Location</Label>
-                  <Input
-                    placeholder="Enter location..."
+                  <LocationSearch
                     value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="rounded-xl"
+                    onChange={setLocation}
+                    placeholder="Search for a location..."
                   />
                 </div>
 
