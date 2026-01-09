@@ -24,7 +24,7 @@ export function Layout({ children }: LayoutProps) {
     { to: '/log-meltdown', label: 'Log an Event', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
     { to: '/insights', label: 'Insights', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
     { to: '/data', label: 'Data', roles: ['Clinician', 'Admin'] },
-    { to: '/settings', label: 'Settings', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
+    { to: '/settings', label: user?.role === 'Admin' ? 'Admin Settings (for ALL users!)' : 'Settings', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
   ];
 
   const visibleLinks = navLinks.filter(link => 
