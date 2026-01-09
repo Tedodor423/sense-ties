@@ -41,22 +41,14 @@ async function processArticleInBackground(
       return;
     }
 
-    // Get the file from storage
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from("scientific-articles")
-      .download(article.file_path);
 
-    if (downloadError || !fileData) {
-      console.error("Error downloading file:", downloadError);
-      await supabase
-        .from("scientific_articles")
-        .update({ status: "error", error_message: "Failed to download file" })
-        .eq("id", article_id);
-      return;
-    }
-
-    // Extract text from PDF
-    const text = await extractTextFromFile(fileData, article.filename);
+    // Extract text from stored file WITHOUT loading the whole PDF into memory
+    const text = await extractTextFromStorageObject(
+      supabase,
+      "scientific-articles",
+      article.file_path,
+      article.filename
+    );
 
     if (!text || text.length < 100) {
       console.error("Failed to extract meaningful text from file");
@@ -230,83 +222,118 @@ Deno.serve(async (req) => {
   }
 });
 
-// Helper function to extract text from file
-async function extractTextFromFile(blob: Blob, filename: string): Promise<string> {
-  const lowerName = filename.toLowerCase();
+async function extractTextFromStorageObject(
+  supabase: any,
+  bucket: string,
+  objectPath: string,
+  filename: string
+): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(objectPath, 60 * 10);
 
-  if (lowerName.endsWith('.txt') || lowerName.endsWith('.md')) {
-    return await blob.text();
+  if (error || !data?.signedUrl) {
+    throw new Error(`Failed to create signed URL: ${error?.message ?? "unknown"}`);
   }
 
-  if (lowerName.endsWith('.pdf')) {
-    // Memory-conscious PDF text extraction (best-effort)
-    // Scans bytes for literal strings within ( ... ) which often contain PDF text.
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    const decoder = new TextDecoder('latin1', { fatal: false });
+  const res = await fetch(data.signedUrl);
+  if (!res.ok) {
+    throw new Error(`Failed to download file via signed URL (HTTP ${res.status})`);
+  }
 
-    const parts: string[] = [];
-    let buf: number[] = [];
-    let inParen = false;
-    let escaped = false;
-    let totalChars = 0;
-    const MAX_EXTRACTED_CHARS = 250_000; // safety cap to prevent memory blowups
+  const lowerName = filename.toLowerCase();
+  if (lowerName.endsWith(".pdf")) {
+    return await extractTextFromPdfResponse(res);
+  }
 
-    for (let i = 0; i < bytes.length; i++) {
-      const b = bytes[i];
+  // txt / md / fallback
+  return await res.text();
+}
 
-      if (!inParen) {
-        if (b === 0x28) { // '('
-          inParen = true;
+async function extractTextFromPdfResponse(res: Response): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body to read");
+
+  const decoder = new TextDecoder("latin1", { fatal: false });
+
+  const parts: string[] = [];
+  let buf: number[] = [];
+  let inParen = false;
+  let escaped = false;
+
+  let totalChars = 0;
+  const MAX_EXTRACTED_CHARS = 250_000;
+
+  // Safety stop: don't stream-read forever on huge files
+  let totalBytesRead = 0;
+  const MAX_BYTES_TO_SCAN = 25 * 1024 * 1024; // 25MB
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      totalBytesRead += value.length;
+      if (totalBytesRead > MAX_BYTES_TO_SCAN) {
+        console.log("PDF scan reached byte cap; stopping early");
+        break;
+      }
+
+      for (let i = 0; i < value.length; i++) {
+        const b = value[i];
+
+        if (!inParen) {
+          if (b === 0x28) { // '('
+            inParen = true;
+            escaped = false;
+            buf = [];
+          }
+          continue;
+        }
+
+        if (escaped) {
+          buf.push(b);
           escaped = false;
+          continue;
+        }
+
+        if (b === 0x5c) { // '\\'
+          escaped = true;
+          continue;
+        }
+
+        if (b === 0x29) { // ')'
+          if (buf.length > 2) {
+            const s = decoder.decode(new Uint8Array(buf));
+            if (/[a-zA-Z]/.test(s)) {
+              parts.push(s);
+              totalChars += s.length;
+              if (totalChars >= MAX_EXTRACTED_CHARS) {
+                console.log("PDF extraction reached char cap; stopping early");
+                return parts.join(" ").replace(/\s+/g, " ").trim();
+              }
+            }
+          }
+          inParen = false;
+          buf = [];
+          continue;
+        }
+
+        if (b === 0x00) continue;
+        buf.push(b);
+
+        if (buf.length > 5000) {
+          inParen = false;
           buf = [];
         }
-        continue;
-      }
-
-      // inParen
-      if (escaped) {
-        buf.push(b);
-        escaped = false;
-        continue;
-      }
-
-      if (b === 0x5c) { // '\\'
-        escaped = true;
-        continue;
-      }
-
-      if (b === 0x29) { // ')'
-        if (buf.length > 2) {
-          const s = decoder.decode(new Uint8Array(buf));
-          if (/[a-zA-Z]/.test(s)) {
-            parts.push(s);
-            totalChars += s.length;
-            if (totalChars >= MAX_EXTRACTED_CHARS) break;
-          }
-        }
-        inParen = false;
-        buf = [];
-        continue;
-      }
-
-      // Skip obvious binary noise
-      if (b === 0x00) continue;
-      buf.push(b);
-
-      // Prevent pathological long strings
-      if (buf.length > 5000) {
-        inParen = false;
-        buf = [];
       }
     }
-
-    return parts
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+  } finally {
+    try { await reader.cancel(); } catch { /* ignore */ }
   }
 
-  return await blob.text();
+  return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
 // Helper function to chunk text with overlap
