@@ -66,6 +66,14 @@ interface ChildContext {
   birth_year: number | null;
 }
 
+// Full child object for generateInsightForChild
+interface ChildForInsight {
+  id: string;
+  name: string;
+  month_of_birth: number | null;
+  year_of_birth: number | null;
+}
+
 interface EvidenceRef {
   article_id: string;
   chunk_index: number;
@@ -81,7 +89,6 @@ interface TriggerEvidence {
 interface Evidence {
   evidence_refs: TriggerEvidence[];
   formattedContext: string;
-  // Keep sources for backward compatibility with generateInsight
   sources: Array<{
     title: string;
     chunk: string;
@@ -89,10 +96,27 @@ interface Evidence {
   }>;
 }
 
-interface InsightDraft {
-  narrative: string;
+// New structured insight output from generateInsightForChild
+interface GeneratedInsight {
+  child_id: string;
+  child_name: string;
+  child_age_years: number;
+  narrative_markdown: string;
+  evidence: Array<{
+    article_id: string;
+    chunk_index: number;
+    excerpt: string;
+  }>;
   recommendations: string[];
-  evidenceUsed: string[];
+  escalation_triggers: string[];
+  safety: {
+    flags: string[];
+    escalation_text: string;
+  };
+  meta: {
+    generated_at: string;
+    model: string;
+  };
 }
 
 interface SafetyResult {
@@ -177,14 +201,24 @@ serve(async (req) => {
       const evidence = await retrieveEvidence(supabase, openai, queryTerms);
       console.log("Retrieved", evidence.sources.length, "evidence sources");
 
-      // Step 7: Generate insight narrative
-      const childData = await getChildData(supabase, job.child_id);
-      const draft = await generateInsight(openai, analysis, evidence, childData, meltdowns);
-      console.log("Generated insight draft");
+      // Step 7: Build child object for insight generation
+      const child: ChildForInsight = {
+        id: childContext.child_id,
+        name: childContext.child_name,
+        month_of_birth: childContext.birth_month,
+        year_of_birth: childContext.birth_year,
+      };
 
-      // Step 8: Safety check - flag urgent concerns
-      const safeResult = await applySafetyRules(openai, draft, analysis);
-      console.log("Safety check complete, urgent:", safeResult.isUrgent);
+      // Step 8: Generate structured insight using new function
+      const generatedInsight = await generateInsightForChild(openai, analysis, evidence, child);
+      console.log("Generated structured insight for child:", child.name);
+
+      // Step 9: Convert to SafetyResult format for saving
+      const safeResult: SafetyResult = {
+        output: generatedInsight.narrative_markdown,
+        isUrgent: generatedInsight.safety.flags.length > 0,
+        safeguardingNotes: generatedInsight.safety.escalation_text || null,
+      };
 
       // Step 9: Save insight to children table
       await saveInsight(supabase, job.child_id, safeResult);
@@ -335,20 +369,19 @@ async function getChildContext(
   };
 }
 
-// Helper to calculate age from birth month/year
+// Helper to calculate age from birth month/year (for analysis context)
 function calculateAge(birthMonth: number | null, birthYear: number | null): number | null {
   if (!birthMonth || !birthYear) return null;
-  
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth() + 1;
-  
-  let age = currentYear - birthYear;
-  if (currentMonth < birthMonth) {
-    age -= 1;
-  }
-  
-  return age;
+  return computeAgeYears(birthMonth, birthYear);
+}
+
+// Compute child age in years (rounded down) - used for LLM prompts
+function computeAgeYears(month: number, year: number, now: Date = new Date()): number {
+  const birthDate = new Date(year, month - 1, 1); // month is 1-12
+  let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
+  const m = now.getUTCMonth() - birthDate.getUTCMonth();
+  if (m < 0) age--;
+  return Math.max(0, age);
 }
 
 async function getChildData(
@@ -673,127 +706,186 @@ async function searchWithFallback(
 }
 
 // ============================================================================
-// Step 6: Generate Insight
+// Step 7: Generate Insight for Child (new structured format)
 // ============================================================================
 
-async function generateInsight(
+const SYSTEM_PROMPT_INSIGHT = `You are a careful, conservative clinical-style writer producing a short, child-specific insight. ALWAYS:
+- Use hedged language ("may", "is associated with", "consider") and avoid diagnostic claims.
+- Only quote or summarize the evidence supplied in the "EVIDENCE" input. Do not invent facts.
+- Include these sections (as Markdown inside the narrative string): 
+  1) "What we observed" (3–5 concise bullets),
+  2) "Why this might be happening" (1–3 bullets),
+  3) "What to try next" (3 recommended, practical actions),
+  4) "When to escalate" (clear, actionable triggers).
+- If any safety flags exist, prepend the standard URGENT safeguarding paragraph (see safety rules).
+- Output only valid JSON; do not include any commentary outside the JSON.
+- JSON must follow the schema described in the user prompt.`;
+
+async function generateInsightForChild(
   openai: OpenAI,
   analysis: AnalysisResult,
   evidence: Evidence,
-  child: { name: string; rolling_summary: string | null },
-  meltdowns: Meltdown[]
-): Promise<InsightDraft> {
-  const prompt = `Generate personalized insights for ${child.name} based on the following analysis.
+  child: ChildForInsight
+): Promise<GeneratedInsight> {
+  // Compute child age in years
+  const childAgeYears = (child.month_of_birth && child.year_of_birth)
+    ? computeAgeYears(child.month_of_birth, child.year_of_birth)
+    : 0;
 
-BEHAVIORAL ANALYSIS:
-${JSON.stringify(analysis, null, 2)}
+  const userPrompt = `INPUT:
+- CHILD: { "id": "${child.id}", "name": "${child.name}", "month_of_birth": ${child.month_of_birth || 'null'}, "year_of_birth": ${child.year_of_birth || 'null'}, "age_years": ${childAgeYears} }
+- ANALYSIS_JSON: ${JSON.stringify(analysis)}
+- EVIDENCE_REFS: ${JSON.stringify(evidence.evidence_refs)}
+- SAFETY_FLAGS: ${JSON.stringify(analysis.safety_flags)}
 
-HISTORICAL CONTEXT:
-${child.rolling_summary || "This is the first analysis for this child."}
+TASK:
+Produce a single JSON object (valid JSON only) with these keys exactly:
 
-RESEARCH EVIDENCE:
-${evidence.formattedContext}
-
-RECENT EVENT COUNT: ${meltdowns.length} meltdowns in the last 30 days
-
-Generate a compassionate, actionable insight report that:
-1. Summarizes the key patterns observed
-2. Provides evidence-based recommendations (cite research when applicable)
-3. Suggests practical strategies parents can implement
-4. Acknowledges what's working well (if any positive patterns exist)
-5. Offers hope and encouragement
-
-Write in a warm, supportive tone. Avoid clinical jargon. Keep the total response under 400 words.
-
-Format your response as a cohesive narrative, not bullet points.`;
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { 
-        role: "system", 
-        content: "You are a supportive child behavior specialist helping parents understand and manage their child's meltdowns. Be warm, practical, and evidence-based." 
-      },
-      { role: "user", content: prompt }
-    ],
-    max_tokens: 600,
-    temperature: 0.7,
-  });
-
-  const narrative = response.choices[0].message.content || "";
-
-  return {
-    narrative,
-    recommendations: analysis.top_triggers.map(t => `Monitor and prepare for ${t.trigger} situations`),
-    evidenceUsed: evidence.sources.map(s => s.title),
-  };
+{
+  "child_id": "<uuid>",
+  "child_name": "<full name>",
+  "child_age_years": <integer>,
+  "narrative_markdown": "<markdown string with the sections: What we observed; Why this might be happening; What to try next; When to escalate>",
+  "evidence": [
+    { "article_id": "<uuid>", "chunk_index": <int>, "excerpt": "<up to 50 words excerpt>"}
+  ],
+  "recommendations": [ "<short action 1>", "<short action 2>", "<short action 3>" ],
+  "escalation_triggers": [ "<condition 1>", "<condition 2>" ],
+  "safety": {
+     "flags": [ "long_duration", "elopement", ... ],
+     "escalation_text": "<if flagged, include the URGENT paragraph here; otherwise empty string>"
+  },
+  "meta": { "generated_at": "<ISO 8601 UTC timestamp>", "model": "GPT-4o-mini" }
 }
 
-// ============================================================================
-// Step 7: Safety Check
-// ============================================================================
+REQUIREMENTS:
+1. Use only the ANALYSIS_JSON numbers and the supplied EVIDENCE_REFS — do not hallucinate additional data.
+2. Narrative must be child-focused and mention the child's age where helpful ("The child is X years old").
+3. If SAFETY_FLAGS is non-empty, include the URGENT safeguarding paragraph exactly as specified in the app settings and list clear escalation_triggers.
+4. Evidence entries must reference only returned article chunk(s) and include short excerpts (no more than ~50 words). Do not invent article titles — provide article_id + chunk_index + excerpt.
+5. Output MUST be valid JSON. If you cannot produce any field, set it to null or an empty array as appropriate.`;
 
-async function applySafetyRules(
-  openai: OpenAI,
-  draft: InsightDraft,
-  analysis: AnalysisResult
-): Promise<SafetyResult> {
-  // Check for risk indicators that need safeguarding
-  const riskKeywords = [
-    "self-harm", "self harm", "suicide", "hurt themselves", "hurting themselves",
-    "danger", "emergency", "hospital", "injury", "injuries",
-    "aggressive", "violence", "hitting", "biting", "choking",
-    "extreme distress", "uncontrollable", "hours long",
-  ];
-
-  // Use safety_flags from analysis instead of riskIndicators
-  const allText = [
-    ...analysis.safety_flags,
-    analysis.summary,
-    draft.narrative,
-  ].join(" ").toLowerCase();
-
-  const flaggedRisks = riskKeywords.filter(kw => allText.includes(kw));
-  const isUrgent = flaggedRisks.length > 0 || analysis.safety_flags.length > 0;
-
-  let safeguardingNotes: string | null = null;
-
-  if (isUrgent) {
-    // Generate safeguarding message
-    const allFlags = [...new Set([...flaggedRisks, ...analysis.safety_flags])];
-    const safetyPrompt = `Based on the following risk indicators, generate a brief safeguarding notice for parents:
-
-Risk indicators found: ${allFlags.join(", ")}
-
-The notice should:
-1. Acknowledge the concerning patterns
-2. Recommend consulting a healthcare professional
-3. Provide crisis resource information if relevant
-4. Be supportive, not alarming
-
-Keep it under 100 words.`;
-
-    const safetyResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are a child safety specialist. Provide supportive, actionable safeguarding guidance." 
+  // Retry logic: up to 2 attempts
+  let lastError: string = "";
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const messages: Array<{ role: "system" | "user"; content: string }> = [
+        { role: "system", content: SYSTEM_PROMPT_INSIGHT },
+        { role: "user", content: attempt > 1 
+          ? userPrompt + `\n\nOutput valid JSON only — fields missing or invalid: ${lastError}`
+          : userPrompt 
         },
-        { role: "user", content: safetyPrompt }
-      ],
-      max_tokens: 200,
-      temperature: 0.3,
-    });
+      ];
 
-    safeguardingNotes = safetyResponse.choices[0].message.content || 
-      "We've noticed some patterns that may benefit from professional guidance. Please consider consulting your child's healthcare provider or a behavioral specialist for personalized support.";
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        max_tokens: 2000,
+        temperature: 0.3,
+      });
+
+      const content = response.choices[0].message.content || "{}";
+      
+      // Extract JSON from response (handle potential markdown code blocks)
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        lastError = "No JSON object found in response";
+        throw new Error(lastError);
+      }
+      
+      const parsed = JSON.parse(jsonMatch[0]) as GeneratedInsight;
+      
+      // Validate required fields
+      const missingFields: string[] = [];
+      if (!parsed.child_id) missingFields.push("child_id");
+      if (!parsed.child_name) missingFields.push("child_name");
+      if (parsed.child_age_years === undefined) missingFields.push("child_age_years");
+      if (!parsed.narrative_markdown) missingFields.push("narrative_markdown");
+      if (!Array.isArray(parsed.recommendations)) missingFields.push("recommendations");
+      if (!parsed.safety) missingFields.push("safety");
+      if (!parsed.meta) missingFields.push("meta");
+      
+      if (missingFields.length > 0) {
+        lastError = missingFields.join(", ");
+        throw new Error(`Missing fields: ${lastError}`);
+      }
+      
+      // Ensure meta has generated_at
+      if (!parsed.meta.generated_at) {
+        parsed.meta.generated_at = new Date().toISOString();
+      }
+      if (!parsed.meta.model) {
+        parsed.meta.model = "GPT-4o-mini";
+      }
+      
+      console.log("Successfully generated structured insight on attempt", attempt);
+      return parsed;
+      
+    } catch (e) {
+      console.error(`Attempt ${attempt} failed to generate insight:`, e);
+      if (attempt === 2) {
+        // All retries failed - return fallback structure
+        console.error("All insight generation attempts failed, using fallback");
+        return createFallbackInsight(child, childAgeYears, analysis, evidence);
+      }
+    }
   }
+  
+  // TypeScript requires a return here even though we always return above
+  return createFallbackInsight(child, childAgeYears, analysis, evidence);
+}
+
+// Create a fallback insight when LLM fails
+function createFallbackInsight(
+  child: ChildForInsight,
+  childAgeYears: number,
+  analysis: AnalysisResult,
+  evidence: Evidence
+): GeneratedInsight {
+  const narrativeMarkdown = `## What we observed
+
+${analysis.top_triggers.slice(0, 5).map(t => `- ${t.trigger} (${t.count} occurrences)`).join('\n') || '- Data analysis in progress'}
+
+## Why this might be happening
+
+- Multiple factors may be contributing to these patterns
+- Further observation is recommended
+
+## What to try next
+
+- Monitor for identified triggers
+- Try resolution strategies that have worked before
+- Consider consulting with a specialist
+
+## When to escalate
+
+- If meltdowns increase in frequency or intensity
+- If new concerning behaviors emerge`;
 
   return {
-    output: draft.narrative,
-    isUrgent,
-    safeguardingNotes,
+    child_id: child.id,
+    child_name: child.name,
+    child_age_years: childAgeYears,
+    narrative_markdown: narrativeMarkdown,
+    evidence: evidence.evidence_refs.slice(0, 3).flatMap(te => 
+      te.refs.slice(0, 1).map(ref => ({
+        article_id: ref.article_id,
+        chunk_index: ref.chunk_index,
+        excerpt: ref.chunk_text.slice(0, 200),
+      }))
+    ),
+    recommendations: analysis.top_triggers.slice(0, 3).map(t => `Monitor and prepare for ${t.trigger} situations`),
+    escalation_triggers: ["Significant increase in frequency", "Safety concerns emerge"],
+    safety: {
+      flags: analysis.safety_flags,
+      escalation_text: analysis.safety_flags.length > 0 
+        ? "⚠️ URGENT: Safety concerns have been identified. Please consult with a healthcare professional or behavioral specialist as soon as possible."
+        : "",
+    },
+    meta: {
+      generated_at: new Date().toISOString(),
+      model: "GPT-4o-mini (fallback)",
+    },
   };
 }
 
