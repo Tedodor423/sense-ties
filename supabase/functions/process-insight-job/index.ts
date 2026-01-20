@@ -65,13 +65,27 @@ interface ChildContext {
   age: number;
 }
 
+interface EvidenceRef {
+  article_id: string;
+  chunk_index: number;
+  chunk_text: string;
+  score: number;
+}
+
+interface TriggerEvidence {
+  trigger: string;
+  refs: EvidenceRef[];
+}
+
 interface Evidence {
+  evidence_refs: TriggerEvidence[];
+  formattedContext: string;
+  // Keep sources for backward compatibility with generateInsight
   sources: Array<{
     title: string;
     chunk: string;
     similarity: number;
   }>;
-  formattedContext: string;
 }
 
 interface InsightDraft {
@@ -498,67 +512,143 @@ function parseDurationToSeconds(duration: string | null): number | null {
 }
 
 // ============================================================================
-// Step 5: Retrieve Evidence (RAG)
+// Step 5: Retrieve Evidence (RAG) - Per-trigger vector search
 // ============================================================================
 
 async function retrieveEvidence(
   supabase: SupabaseClient, 
   openai: OpenAI, 
-  keyFindings: string[]
+  triggers: string[]
 ): Promise<Evidence> {
-  // Create query embedding from key findings
-  const queryText = keyFindings.join(". ");
-  
-  const embeddingResponse = await openai.embeddings.create({
-    model: "text-embedding-ada-002",
-    input: queryText,
-  });
+  const evidence_refs: TriggerEvidence[] = [];
+  const allSources: Evidence["sources"] = [];
 
-  const queryEmbedding = embeddingResponse.data[0].embedding;
+  // Process each trigger with its own embedding and vector search
+  for (const trigger of triggers) {
+    if (!trigger || trigger.trim() === "") continue;
 
-  // Try vector search via RPC first
-  const { data: matches, error: rpcError } = await supabase.rpc('match_article_embeddings', {
-    query_embedding: JSON.stringify(queryEmbedding),
-    match_threshold: 0.65,
-    match_count: 5,
-  });
+    try {
+      // Generate embedding for this trigger
+      const embeddingResponse = await openai.embeddings.create({
+        model: "text-embedding-ada-002",
+        input: trigger,
+      });
 
-  let sources: Evidence["sources"] = [];
+      const queryEmbedding = embeddingResponse.data[0].embedding;
 
-  if (!rpcError && matches && matches.length > 0) {
-    sources = matches.map((m: any) => ({
-      title: m.article_title || "Research Article",
-      chunk: m.chunk_text,
-      similarity: m.similarity,
-    }));
-  } else {
-    // Fallback: fetch recent article chunks without vector search
-    console.log("Vector search unavailable, using fallback");
-    const { data: fallbackChunks } = await supabase
-      .from("article_embeddings")
-      .select(`
-        chunk_text,
-        scientific_articles (title)
-      `)
-      .limit(3);
+      // Run pgvector nearest-neighbor search
+      // SQL: SELECT id, article_id, chunk_index, chunk_text, 1 - (embedding <#> query_embedding) AS similarity
+      //      FROM article_embeddings ORDER BY embedding <#> query_embedding LIMIT 3;
+      const { data: matches, error } = await supabase.rpc('search_article_embeddings', {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_count: 3,
+      });
 
-    if (fallbackChunks) {
-      sources = fallbackChunks.map((c: any) => ({
-        title: c.scientific_articles?.title || "Research",
-        chunk: c.chunk_text,
-        similarity: 0.5,
-      }));
+      if (error) {
+        console.log(`Vector search failed for trigger "${trigger}":`, error.message);
+        // Try fallback with raw SQL via RPC if available
+        const fallbackResult = await searchWithFallback(supabase, queryEmbedding);
+        if (fallbackResult.length > 0) {
+          evidence_refs.push({
+            trigger,
+            refs: fallbackResult,
+          });
+          // Add to sources for formatted context
+          fallbackResult.forEach(ref => {
+            allSources.push({
+              title: `Article (trigger: ${trigger})`,
+              chunk: ref.chunk_text,
+              similarity: ref.score,
+            });
+          });
+        }
+        continue;
+      }
+
+      if (matches && matches.length > 0) {
+        const refs: EvidenceRef[] = matches.map((m: any) => ({
+          article_id: m.article_id,
+          chunk_index: m.chunk_index,
+          chunk_text: m.chunk_text,
+          score: m.similarity || m.score || 0,
+        }));
+
+        evidence_refs.push({
+          trigger,
+          refs,
+        });
+
+        // Add to sources for formatted context
+        refs.forEach(ref => {
+          allSources.push({
+            title: `Research (${trigger})`,
+            chunk: ref.chunk_text,
+            similarity: ref.score,
+          });
+        });
+      }
+    } catch (err) {
+      console.error(`Error processing trigger "${trigger}":`, err);
     }
   }
 
+  // Deduplicate sources by chunk_text
+  const uniqueSources = allSources.filter((source, index, self) => 
+    index === self.findIndex(s => s.chunk === source.chunk)
+  );
+
   // Format context for insight generation
-  const formattedContext = sources.length > 0
-    ? sources.map((s, i) => 
-        `[Source ${i + 1}: ${s.title}]\n${s.chunk}`
-      ).join("\n\n---\n\n")
+  const formattedContext = evidence_refs.length > 0
+    ? evidence_refs.map(te => 
+        `[Trigger: ${te.trigger}]\n` + 
+        te.refs.map((ref, i) => 
+          `  ${i + 1}. (score: ${ref.score.toFixed(2)}) ${ref.chunk_text.slice(0, 300)}...`
+        ).join('\n')
+      ).join('\n\n---\n\n')
     : "No relevant research articles found in the knowledge base.";
 
-  return { sources, formattedContext };
+  console.log(`Retrieved evidence for ${evidence_refs.length} triggers, ${uniqueSources.length} unique sources`);
+
+  return { evidence_refs, sources: uniqueSources, formattedContext };
+}
+
+// Fallback search when RPC is not available
+async function searchWithFallback(
+  supabase: SupabaseClient,
+  queryEmbedding: number[]
+): Promise<EvidenceRef[]> {
+  // Try the older match_article_embeddings RPC
+  const { data, error } = await supabase.rpc('match_article_embeddings', {
+    query_embedding: JSON.stringify(queryEmbedding),
+    match_threshold: 0.5,
+    match_count: 3,
+  });
+
+  if (!error && data && data.length > 0) {
+    return data.map((m: any) => ({
+      article_id: m.article_id || m.id,
+      chunk_index: m.chunk_index || 0,
+      chunk_text: m.chunk_text,
+      score: m.similarity || 0,
+    }));
+  }
+
+  // Last resort: fetch some chunks without vector search
+  const { data: fallbackChunks } = await supabase
+    .from("article_embeddings")
+    .select("id, article_id, chunk_index, chunk_text")
+    .limit(3);
+
+  if (fallbackChunks) {
+    return fallbackChunks.map((c: any) => ({
+      article_id: c.article_id,
+      chunk_index: c.chunk_index,
+      chunk_text: c.chunk_text,
+      score: 0.3, // Low score for non-vector matches
+    }));
+  }
+
+  return [];
 }
 
 // ============================================================================
