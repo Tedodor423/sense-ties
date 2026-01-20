@@ -412,6 +412,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      search_article_embeddings: {
+        Args: { match_count?: number; query_embedding: string }
+        Returns: {
+          article_id: string
+          chunk_index: number
+          chunk_text: string
+          id: string
+          similarity: number
+        }[]
+      }
       user_has_child_access: {
         Args: { _child_id: string; _user_id: string }
         Returns: boolean
