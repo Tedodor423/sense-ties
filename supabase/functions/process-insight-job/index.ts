@@ -62,7 +62,8 @@ interface AnalysisResult {
 interface ChildContext {
   child_name: string;
   child_id: string;
-  age: number;
+  birth_month: number | null;
+  birth_year: number | null;
 }
 
 interface EvidenceRef {
@@ -317,7 +318,7 @@ async function getChildContext(
 ): Promise<ChildContext> {
   const { data, error } = await supabase
     .from("children")
-    .select("id, name, age")
+    .select("id, name, birth_month, birth_year")
     .eq("id", childId)
     .single();
 
@@ -329,8 +330,25 @@ async function getChildContext(
   return {
     child_id: data.id,
     child_name: data.name,
-    age: data.age,
+    birth_month: data.birth_month,
+    birth_year: data.birth_year,
   };
+}
+
+// Helper to calculate age from birth month/year
+function calculateAge(birthMonth: number | null, birthYear: number | null): number | null {
+  if (!birthMonth || !birthYear) return null;
+  
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1;
+  
+  let age = currentYear - birthYear;
+  if (currentMonth < birthMonth) {
+    age -= 1;
+  }
+  
+  return age;
 }
 
 async function getChildData(
@@ -402,8 +420,11 @@ async function analyzeMeltdowns(
     description: m.description || "",
   }));
 
+  const age = calculateAge(context.birth_month, context.birth_year);
+  const ageStr = age !== null ? `${age}` : 'unknown';
+  
   const userPrompt = `INPUT:
-- child: ${context.child_name}, id ${context.child_id}, age ${context.age}
+- child: ${context.child_name}, id ${context.child_id}, age ${ageStr}
 - MELTDOWNS (array): ${JSON.stringify(meltdownObjects)}
 
 TASK:

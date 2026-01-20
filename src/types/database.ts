@@ -14,25 +14,34 @@ export type Database = {
           id: string
           parent_id: string
           name: string
-          age: number
+          birth_month: number | null
+          birth_year: number | null
           created_at: string
           updated_at: string
+          rolling_summary: string | null
+          insights: string | null
         }
         Insert: {
           id?: string
           parent_id: string
           name: string
-          age: number
+          birth_month: number
+          birth_year: number
           created_at?: string
           updated_at?: string
+          rolling_summary?: string | null
+          insights?: string | null
         }
         Update: {
           id?: string
           parent_id?: string
           name?: string
-          age?: number
+          birth_month?: number | null
+          birth_year?: number | null
           created_at?: string
           updated_at?: string
+          rolling_summary?: string | null
+          insights?: string | null
         }
       }
       child_access: {

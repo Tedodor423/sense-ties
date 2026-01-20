@@ -12,7 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LocationSearch } from '@/components/LocationSearch';
 import { toast } from 'sonner';
-import { meltdownSchema, validateForm } from '@/lib/validation';
+import { meltdownSchema, validateForm, formatAge } from '@/lib/validation';
 import { 
   Volume2, Eye, Wind, Users, Home, TreePine, MapPin, Camera, Image,
   RefreshCw, Shuffle, Hand, Ban, MessageSquare, Zap, Clock, Smartphone,
@@ -434,7 +434,7 @@ export default function LogMeltdown() {
                       <User className="w-6 h-6" />
                       <div className="text-left">
                         <div className="font-semibold">{child.name}</div>
-                        <div className="text-sm text-muted-foreground">Age: {child.age}</div>
+                        <div className="text-sm text-muted-foreground">{formatAge(child.birth_month, child.birth_year)}</div>
                       </div>
                     </button>
                   ))}

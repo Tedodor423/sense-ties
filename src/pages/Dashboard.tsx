@@ -7,6 +7,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Card, CardContent } from '@/components/ui/card';
 import { User } from 'lucide-react';
 import { Database } from '@/types/database';
+import { formatAge } from '@/lib/validation';
 
 type Child = Database['public']['Tables']['children']['Row'];
 
@@ -100,7 +101,7 @@ export default function Dashboard() {
                       <User className="w-10 h-10 text-primary" />
                     </div>
                     <h3 className="text-xl font-heading font-bold">{child.name}</h3>
-                    <p className="text-muted-foreground mt-1">Age: {child.age}</p>
+                    <p className="text-muted-foreground mt-1">{formatAge(child.birth_month, child.birth_year)}</p>
                   </CardContent>
                 </Card>
               ))}

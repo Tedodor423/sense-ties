@@ -12,6 +12,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { format } from 'date-fns';
 import { ImageIcon, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
+import { formatAge } from '@/lib/validation';
 
 type Child = Tables<'children'>;
 type Meltdown = Tables<'meltdowns'>;
@@ -287,7 +288,7 @@ export default function Data() {
                 <SelectContent>
                   {children.map(child => (
                     <SelectItem key={child.id} value={child.id}>
-                      {child.name} (Age: {child.age})
+                      {child.name} ({formatAge(child.birth_month, child.birth_year)})
                     </SelectItem>
                   ))}
                 </SelectContent>

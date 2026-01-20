@@ -1,5 +1,30 @@
 import { z } from 'zod';
 
+// Helper to calculate age from birth month/year
+export function calculateAge(birthMonth: number | null, birthYear: number | null): number | null {
+  if (!birthMonth || !birthYear) return null;
+  
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1; // getMonth() is 0-indexed
+  
+  let age = currentYear - birthYear;
+  
+  // Subtract 1 if birthday hasn't occurred yet this year
+  if (currentMonth < birthMonth) {
+    age -= 1;
+  }
+  
+  return age;
+}
+
+// Helper to format age display
+export function formatAge(birthMonth: number | null, birthYear: number | null): string {
+  const age = calculateAge(birthMonth, birthYear);
+  if (age === null) return 'Age unknown';
+  return `Age: ${age}`;
+}
+
 // Registration validation
 export const registerSchema = z.object({
   email: z.string()
@@ -26,10 +51,14 @@ export const childSchema = z.object({
     .trim()
     .min(1, 'Name is required')
     .max(100, 'Name must be less than 100 characters'),
-  age: z.number()
-    .int('Age must be a whole number')
-    .min(1, 'Age must be at least 1')
-    .max(25, 'Age must be 25 or less'),
+  birth_month: z.number()
+    .int('Month must be a whole number')
+    .min(1, 'Month must be between 1 and 12')
+    .max(12, 'Month must be between 1 and 12'),
+  birth_year: z.number()
+    .int('Year must be a whole number')
+    .min(1900, 'Year must be 1900 or later')
+    .max(new Date().getFullYear(), `Year cannot be in the future`),
 });
 
 // Share email validation
