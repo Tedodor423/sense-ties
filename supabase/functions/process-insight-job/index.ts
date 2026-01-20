@@ -34,15 +34,35 @@ interface Meltdown {
 }
 
 interface AnalysisResult {
-  keyFindings: string[];
-  patterns: {
-    frequencyPattern: string;
-    commonTriggers: string[];
-    intensityTrend: string;
-    timePatterns: string;
-  };
-  riskIndicators: string[];
   summary: string;
+  stats: {
+    count: number;
+    avg_duration_seconds: number | "missing_data";
+    median_level: number;
+  };
+  top_triggers: Array<{
+    trigger: string;
+    count: number;
+    supporting_examples: string[];
+  }>;
+  time_patterns: Array<{
+    pattern: string;
+    description: string;
+    count: number;
+  }>;
+  resolution_effectiveness: Array<{
+    strategy: string;
+    helped_count: number;
+    not_helped_count: number;
+    notes: string;
+  }>;
+  safety_flags: string[];
+}
+
+interface ChildContext {
+  child_name: string;
+  child_id: string;
+  age: number;
 }
 
 interface Evidence {
@@ -129,11 +149,17 @@ serve(async (req) => {
       }
 
       // Step 5: Analyze meltdowns - produce analysis JSON
-      const analysis = await analyzeMeltdowns(openai, meltdowns);
-      console.log("Analysis complete:", analysis.keyFindings.length, "key findings");
+      const childContext = await getChildContext(supabase, job.child_id);
+      const analysis = await analyzeMeltdowns(openai, meltdowns, childContext);
+      console.log("Analysis complete:", analysis.top_triggers.length, "triggers identified");
 
       // Step 6: Retrieve RAG evidence based on analysis
-      const evidence = await retrieveEvidence(supabase, openai, analysis.keyFindings);
+      const queryTerms = [
+        analysis.summary,
+        ...analysis.top_triggers.map(t => t.trigger),
+        ...analysis.safety_flags,
+      ].filter(Boolean);
+      const evidence = await retrieveEvidence(supabase, openai, queryTerms);
       console.log("Retrieved", evidence.sources.length, "evidence sources");
 
       // Step 7: Generate insight narrative
@@ -271,6 +297,28 @@ async function loadMeltdowns(
   return (data || []) as Meltdown[];
 }
 
+async function getChildContext(
+  supabase: SupabaseClient, 
+  childId: string
+): Promise<ChildContext> {
+  const { data, error } = await supabase
+    .from("children")
+    .select("id, name, age")
+    .eq("id", childId)
+    .single();
+
+  if (error) {
+    console.error("Error fetching child context:", error);
+    throw new Error(`Failed to fetch child context: ${error.message}`);
+  }
+
+  return {
+    child_id: data.id,
+    child_name: data.name,
+    age: data.age,
+  };
+}
+
 async function getChildData(
   supabase: SupabaseClient, 
   childId: string
@@ -315,93 +363,138 @@ async function saveInsight(
 }
 
 // ============================================================================
-// Step 4: Analyze Meltdowns
+// Step 4: Analyze Meltdowns (with exact prompts from spec)
 // ============================================================================
+
+const SYSTEM_PROMPT_ANALYZE = `You are an objective data analyst. You MUST output only valid JSON (no extra commentary) following the schema exactly. Be conservative: use hedged language like "may", "associated with", "possible", and never claim diagnosis. Output must include: summary, stats, top_triggers, time_patterns, resolution_effectiveness, safety_flags.`;
 
 async function analyzeMeltdowns(
   openai: OpenAI, 
-  meltdowns: Meltdown[]
+  meltdowns: Meltdown[],
+  context: ChildContext
 ): Promise<AnalysisResult> {
-  const meltdownData = meltdowns.map((m, idx) => ({
-    index: idx + 1,
-    date: new Date(m.timestamp).toLocaleDateString(),
-    dayOfWeek: new Date(m.timestamp).toLocaleDateString('en-US', { weekday: 'long' }),
-    timeOfDay: new Date(m.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-    intensity: m.meltdown_level,
-    trigger: m.environment_trigger || 'Unknown',
-    location: m.location || 'Unknown',
-    noiseLevel: m.noise_level || 'Unknown',
-    duration: m.duration || 'Unknown',
-    precedingActivities: m.preceding_activities?.join(', ') || 'None',
-    childState: m.child_state?.join(', ') || 'Unknown',
-    description: m.description || 'No description',
-    resolutionStrategies: m.resolution_strategies?.join(', ') || 'None',
+  // Prepare meltdown objects for the prompt
+  const meltdownObjects = meltdowns.map(m => ({
+    timestamp: m.timestamp,
+    location: m.location || null,
+    environment_factors: [
+      m.environment_trigger,
+      m.noise_level ? `noise:${m.noise_level}` : null,
+      ...(m.child_state || []),
+    ].filter(Boolean),
+    meltdown_level: m.meltdown_level,
+    duration_seconds: parseDurationToSeconds(m.duration),
+    resolution_strategies: m.resolution_strategies || [],
+    description: m.description || "",
   }));
 
-  const prompt = `Analyze the following meltdown data for a child and extract patterns.
+  const userPrompt = `INPUT:
+- child: ${context.child_name}, id ${context.child_id}, age ${context.age}
+- MELTDOWNS (array): ${JSON.stringify(meltdownObjects)}
 
-MELTDOWN DATA (${meltdowns.length} events in the last 30 days):
-${JSON.stringify(meltdownData, null, 2)}
+TASK:
+1) Produce JSON with these keys:
+ {
+   "summary": "short 1-2 sentence summary",
+   "stats": { "count": int, "avg_duration_seconds": number, "median_level": number },
+   "top_triggers": [ { "trigger": "noisy", "count": int, "supporting_examples":[...]} ],
+   "time_patterns": [ { "pattern": "after-school", "description":"", "count": int } ],
+   "resolution_effectiveness": [ { "strategy":"deep pressure", "helped_count": int, "not_helped_count": int, "notes":"" } ],
+   "safety_flags": [ "long_duration", "self_injury_possible" ]  // can be empty
+ }
 
-Provide your analysis as JSON with this exact structure:
-{
-  "keyFindings": ["finding 1", "finding 2", ...],
-  "patterns": {
-    "frequencyPattern": "description of frequency patterns",
-    "commonTriggers": ["trigger1", "trigger2", ...],
-    "intensityTrend": "description of intensity changes over time",
-    "timePatterns": "description of time-of-day or day-of-week patterns"
-  },
-  "riskIndicators": ["any concerning patterns that may need attention"],
-  "summary": "2-3 sentence overall summary"
+2) Use only the supplied meltdown array to compute these numbers (no hallucination).
+3) Where durations are missing, state "missing_data" and estimate only if at least 60% complete.
+4) Keep the output valid JSON only.`;
+
+  // Retry logic: up to 3 attempts (1 initial + 2 retries)
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const messages: Array<{ role: "system" | "user"; content: string }> = [
+        { role: "system", content: SYSTEM_PROMPT_ANALYZE },
+        { role: "user", content: attempt > 1 
+          ? userPrompt + "\n\nOutput valid JSON only — do not include commentary."
+          : userPrompt 
+        },
+      ];
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+        max_tokens: 1500,
+        temperature: 0.2,
+      });
+
+      const content = response.choices[0].message.content || "{}";
+      
+      // Extract JSON from response (handle potential markdown code blocks)
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("No JSON found in response");
+      }
+      
+      const parsed = JSON.parse(jsonMatch[0]) as AnalysisResult;
+      
+      // Validate required fields exist
+      if (!parsed.summary || !parsed.stats || !parsed.top_triggers) {
+        throw new Error("Missing required fields in analysis result");
+      }
+      
+      return parsed;
+    } catch (e) {
+      console.error(`Attempt ${attempt} failed to parse analysis JSON:`, e);
+      lastError = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+
+  // All retries failed - return default structure
+  console.error("All analysis attempts failed:", lastError);
+  const triggers = [...new Set(meltdowns.map(m => m.environment_trigger).filter(Boolean))] as string[];
+  
+  return {
+    summary: `${meltdowns.length} meltdown events recorded. Manual review recommended.`,
+    stats: {
+      count: meltdowns.length,
+      avg_duration_seconds: "missing_data",
+      median_level: Math.round(meltdowns.reduce((sum, m) => sum + m.meltdown_level, 0) / meltdowns.length),
+    },
+    top_triggers: triggers.slice(0, 3).map(t => ({
+      trigger: t,
+      count: meltdowns.filter(m => m.environment_trigger === t).length,
+      supporting_examples: [],
+    })),
+    time_patterns: [],
+    resolution_effectiveness: [],
+    safety_flags: [],
+  };
 }
 
-Focus on:
-1. Environmental triggers that appear frequently
-2. Time patterns (morning vs evening, weekday vs weekend)
-3. Intensity trends (getting better, worse, or stable)
-4. Successful resolution strategies
-5. Any concerning patterns that parents should know about
-
-Return ONLY valid JSON, no additional text.`;
-
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { 
-        role: "system", 
-        content: "You are a child behavior analyst. Analyze meltdown patterns and return structured JSON. Be factual and evidence-based." 
-      },
-      { role: "user", content: prompt }
-    ],
-    max_tokens: 1000,
-    temperature: 0.3,
-  });
-
-  const content = response.choices[0].message.content || "{}";
+// Helper to parse duration strings to seconds
+function parseDurationToSeconds(duration: string | null): number | null {
+  if (!duration) return null;
   
-  try {
-    // Extract JSON from response (handle potential markdown code blocks)
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("No JSON found in response");
-    }
-    return JSON.parse(jsonMatch[0]) as AnalysisResult;
-  } catch (e) {
-    console.error("Failed to parse analysis JSON:", e);
-    // Return default structure on parse failure
-    return {
-      keyFindings: ["Unable to extract detailed patterns"],
-      patterns: {
-        frequencyPattern: `${meltdowns.length} events in last 30 days`,
-        commonTriggers: [...new Set(meltdowns.map(m => m.environment_trigger).filter(Boolean))] as string[],
-        intensityTrend: "Analysis pending",
-        timePatterns: "Analysis pending",
-      },
-      riskIndicators: [],
-      summary: `${meltdowns.length} meltdown events recorded. Manual review recommended.`,
-    };
+  const lower = duration.toLowerCase();
+  
+  // Handle common patterns
+  if (lower.includes("minute")) {
+    const match = lower.match(/(\d+)/);
+    if (match) return parseInt(match[1]) * 60;
   }
+  if (lower.includes("hour")) {
+    const match = lower.match(/(\d+)/);
+    if (match) return parseInt(match[1]) * 3600;
+  }
+  if (lower.includes("second")) {
+    const match = lower.match(/(\d+)/);
+    if (match) return parseInt(match[1]);
+  }
+  
+  // Try direct numeric value
+  const numeric = parseInt(duration);
+  if (!isNaN(numeric)) return numeric * 60; // Assume minutes if just a number
+  
+  return null;
 }
 
 // ============================================================================
@@ -520,7 +613,7 @@ Format your response as a cohesive narrative, not bullet points.`;
 
   return {
     narrative,
-    recommendations: analysis.patterns.commonTriggers.map(t => `Monitor and prepare for ${t} situations`),
+    recommendations: analysis.top_triggers.map(t => `Monitor and prepare for ${t.trigger} situations`),
     evidenceUsed: evidence.sources.map(s => s.title),
   };
 }
@@ -542,22 +635,24 @@ async function applySafetyRules(
     "extreme distress", "uncontrollable", "hours long",
   ];
 
+  // Use safety_flags from analysis instead of riskIndicators
   const allText = [
-    ...analysis.riskIndicators,
+    ...analysis.safety_flags,
     analysis.summary,
     draft.narrative,
   ].join(" ").toLowerCase();
 
   const flaggedRisks = riskKeywords.filter(kw => allText.includes(kw));
-  const isUrgent = flaggedRisks.length > 0 || analysis.riskIndicators.length > 0;
+  const isUrgent = flaggedRisks.length > 0 || analysis.safety_flags.length > 0;
 
   let safeguardingNotes: string | null = null;
 
   if (isUrgent) {
     // Generate safeguarding message
+    const allFlags = [...new Set([...flaggedRisks, ...analysis.safety_flags])];
     const safetyPrompt = `Based on the following risk indicators, generate a brief safeguarding notice for parents:
 
-Risk indicators found: ${[...flaggedRisks, ...analysis.riskIndicators].join(", ")}
+Risk indicators found: ${allFlags.join(", ")}
 
 The notice should:
 1. Acknowledge the concerning patterns
