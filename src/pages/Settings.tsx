@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { Database } from '@/types/database';
 import { Switch } from '@/components/ui/switch';
-import { childSchema, shareEmailSchema, validateForm } from '@/lib/validation';
+import { childSchema, shareEmailSchema, validateForm, formatAge } from '@/lib/validation';
 import { ArticleManagement } from '@/components/ArticleManagement';
 import { AIPromptEditor } from '@/components/AIPromptEditor';
 import {
@@ -35,7 +35,8 @@ export default function Settings() {
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>('new');
   const [childName, setChildName] = useState('');
-  const [childAge, setChildAge] = useState('');
+  const [birthMonth, setBirthMonth] = useState('');
+  const [birthYear, setBirthYear] = useState('');
   const [shareEmail, setShareEmail] = useState('');
   const [sharedUsers, setSharedUsers] = useState<Array<{ id: string; email: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -55,7 +56,8 @@ export default function Settings() {
       fetchSharedUsers();
     } else {
       setChildName('');
-      setChildAge('');
+      setBirthMonth('');
+      setBirthYear('');
       setSharedUsers([]);
     }
   }, [selectedChildId]);
@@ -100,7 +102,8 @@ export default function Settings() {
     const child = children.find(c => c.id === selectedChildId);
     if (child) {
       setChildName(child.name);
-      setChildAge(child.age.toString());
+      setBirthMonth(child.birth_month?.toString() || '');
+      setBirthYear(child.birth_year?.toString() || '');
     }
   };
 
@@ -136,10 +139,12 @@ export default function Settings() {
 
   const handleSaveChild = async () => {
     // Validate input
-    const ageNum = parseInt(childAge);
+    const monthNum = parseInt(birthMonth);
+    const yearNum = parseInt(birthYear);
     const validation = validateForm(childSchema, {
       name: childName.trim(),
-      age: isNaN(ageNum) ? 0 : ageNum,
+      birth_month: isNaN(monthNum) ? 0 : monthNum,
+      birth_year: isNaN(yearNum) ? 0 : yearNum,
     });
 
     if (!validation.success) {
@@ -156,7 +161,8 @@ export default function Settings() {
         const { error } = await supabase.from('children').insert({
           parent_id: user!.user.id,
           name: validation.data!.name,
-          age: validation.data!.age,
+          birth_month: validation.data!.birth_month,
+          birth_year: validation.data!.birth_year,
         } as any);
 
         if (error) throw error;
@@ -167,7 +173,8 @@ export default function Settings() {
           .from('children')
           .update({
             name: validation.data!.name,
-            age: validation.data!.age,
+            birth_month: validation.data!.birth_month,
+            birth_year: validation.data!.birth_year,
           })
           .eq('id', selectedChildId);
 
@@ -345,7 +352,7 @@ export default function Settings() {
                       <SelectItem value="new">Add New Child</SelectItem>
                       {children.map(child => (
                         <SelectItem key={child.id} value={child.id}>
-                          {child.name} (Age: {child.age})
+                          {child.name} ({formatAge(child.birth_month, child.birth_year)})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -363,17 +370,35 @@ export default function Settings() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Age</Label>
-                  <Input
-                    type="number"
-                    placeholder="Age"
-                    value={childAge}
-                    onChange={(e) => setChildAge(e.target.value)}
-                    min={1}
-                    max={25}
-                    className="rounded-xl"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Birth Month</Label>
+                    <Select value={birthMonth} onValueChange={setBirthMonth}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 12 }, (_, i) => (
+                          <SelectItem key={i + 1} value={(i + 1).toString()}>
+                            {new Date(2000, i).toLocaleString('default', { month: 'long' })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Birth Year</Label>
+                    <Input
+                      type="number"
+                      placeholder="Year"
+                      value={birthYear}
+                      onChange={(e) => setBirthYear(e.target.value)}
+                      min={1900}
+                      max={new Date().getFullYear()}
+                      className="rounded-xl"
+                    />
+                  </div>
                 </div>
 
                 <Button

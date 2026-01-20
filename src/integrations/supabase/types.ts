@@ -107,7 +107,8 @@ export type Database = {
       }
       children: {
         Row: {
-          age: number
+          birth_month: number | null
+          birth_year: number | null
           created_at: string | null
           id: string
           insights: string | null
@@ -117,7 +118,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          age: number
+          birth_month?: number | null
+          birth_year?: number | null
           created_at?: string | null
           id?: string
           insights?: string | null
@@ -127,7 +129,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          age?: number
+          birth_month?: number | null
+          birth_year?: number | null
           created_at?: string | null
           id?: string
           insights?: string | null
