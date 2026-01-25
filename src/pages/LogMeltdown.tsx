@@ -299,17 +299,10 @@ export default function LogMeltdown() {
 
       if (error) throw error;
 
-      toast.success('Event logged successfully!');
+      toast.success('Event logged successfully! Insights will be generated in the background.');
       
-      // Generate insights for this child
-      try {
-        console.log('Generating insights for child:', selectedChildId);
-        await supabase.functions.invoke('generate-insights', {
-          body: { child_id: selectedChildId }
-        });
-      } catch (insightsErr) {
-        console.error('Error calling insights function:', insightsErr);
-      }
+      // Note: Insights are now generated via database trigger (queue_insight_job)
+      // No need to call generate-insights directly - the trigger handles rate limiting
       
       // Reset form
       resetForm();

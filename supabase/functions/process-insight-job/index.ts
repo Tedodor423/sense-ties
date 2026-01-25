@@ -240,15 +240,23 @@ serve(async (req) => {
       const allFlags = [...new Set([...generatedInsight.safety.flags, ...safetyCheckResult.flags])];
       const escalationText = safetyCheckResult.escalation_text || generatedInsight.safety.escalation_text;
 
-      // Step 12: Convert to SafetyResult format for saving
-      const safeResult: SafetyResult = {
-        output: finalNarrative,
-        isUrgent: allFlags.length > 0,
-        safeguardingNotes: escalationText || null,
+      // Step 12: Build extended insight data for history
+      const extendedInsight = {
+        safeResult: {
+          output: finalNarrative,
+          isUrgent: allFlags.length > 0,
+          safeguardingNotes: escalationText || null,
+        },
+        narrative_markdown: finalNarrative,
+        evidence: generatedInsight.evidence,
+        recommendations: generatedInsight.recommendations,
+        escalation_triggers: generatedInsight.escalation_triggers,
+        safety_flags: allFlags,
+        model: generatedInsight.meta?.model || "GPT-4o-mini",
       };
 
-      // Step 13: Save insight to children table
-      await saveInsight(supabase, job.child_id, safeResult);
+      // Step 13: Save insight to children table AND history
+      await saveInsightWithHistory(supabase, job.child_id, job.id, extendedInsight);
 
       // Step 14: Mark job completed
       await updateJob(supabase, job.id, { 
@@ -262,7 +270,7 @@ serve(async (req) => {
         success: true, 
         job_id: job.id,
         child_id: job.child_id,
-        is_urgent: safeResult.isUrgent,
+        is_urgent: extendedInsight.safeResult.isUrgent,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -429,18 +437,32 @@ async function getChildData(
   return data;
 }
 
-async function saveInsight(
+interface ExtendedInsight {
+  safeResult: SafetyResult;
+  narrative_markdown: string;
+  evidence: Array<{ article_id: string; chunk_index: number; excerpt: string }>;
+  recommendations: string[];
+  escalation_triggers: string[];
+  safety_flags: string[];
+  model: string;
+}
+
+async function saveInsightWithHistory(
   supabase: SupabaseClient, 
-  childId: string, 
-  result: SafetyResult
+  childId: string,
+  jobId: string,
+  insight: ExtendedInsight
 ): Promise<void> {
+  const { safeResult } = insight;
+  
   // Build final insight text with urgency marker if needed
-  let finalInsight = result.output;
-  if (result.isUrgent && result.safeguardingNotes) {
-    finalInsight = `⚠️ URGENT ATTENTION REQUIRED\n\n${result.safeguardingNotes}\n\n---\n\n${result.output}`;
+  let finalInsight = safeResult.output;
+  if (safeResult.isUrgent && safeResult.safeguardingNotes) {
+    finalInsight = `⚠️ URGENT ATTENTION REQUIRED\n\n${safeResult.safeguardingNotes}\n\n---\n\n${safeResult.output}`;
   }
 
-  const { error } = await supabase
+  // Update children.insights with latest
+  const { error: childError } = await supabase
     .from("children")
     .update({ 
       insights: finalInsight,
@@ -448,9 +470,33 @@ async function saveInsight(
     })
     .eq("id", childId);
 
-  if (error) {
-    console.error("Error saving insight:", error);
-    throw new Error(`Failed to save insight: ${error.message}`);
+  if (childError) {
+    console.error("Error saving insight to children:", childError);
+    throw new Error(`Failed to save insight: ${childError.message}`);
+  }
+
+  // Also save to history table
+  const { error: historyError } = await supabase
+    .from("child_insights_history")
+    .insert({
+      child_id: childId,
+      job_id: jobId,
+      insight_text: finalInsight,
+      narrative_markdown: insight.narrative_markdown,
+      evidence: insight.evidence,
+      recommendations: insight.recommendations,
+      escalation_triggers: insight.escalation_triggers,
+      safety_flags: insight.safety_flags,
+      is_urgent: safeResult.isUrgent,
+      model: insight.model,
+      generated_at: new Date().toISOString(),
+    });
+
+  if (historyError) {
+    // Log but don't fail - history is secondary
+    console.error("Error saving insight to history:", historyError);
+  } else {
+    console.log("Insight saved to history for child:", childId);
   }
 }
 
