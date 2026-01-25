@@ -125,6 +125,13 @@ interface SafetyResult {
   safeguardingNotes: string | null;
 }
 
+// New SafetyCheck result interface
+interface SafetyCheckResult {
+  output_text: string;
+  flags: string[];
+  escalation_text: string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -213,17 +220,26 @@ serve(async (req) => {
       const generatedInsight = await generateInsightForChild(openai, analysis, evidence, child);
       console.log("Generated structured insight for child:", child.name);
 
-      // Step 9: Convert to SafetyResult format for saving
+      // Step 9: Run deterministic safety check on analysis + draft insight
+      const safetyCheckResult = safetyCheck(analysis, meltdowns, generatedInsight.narrative_markdown);
+      console.log("Safety check complete, flags:", safetyCheckResult.flags);
+
+      // Step 10: Merge safety check results with generated insight
+      const finalNarrative = safetyCheckResult.output_text;
+      const allFlags = [...new Set([...generatedInsight.safety.flags, ...safetyCheckResult.flags])];
+      const escalationText = safetyCheckResult.escalation_text || generatedInsight.safety.escalation_text;
+
+      // Step 11: Convert to SafetyResult format for saving
       const safeResult: SafetyResult = {
-        output: generatedInsight.narrative_markdown,
-        isUrgent: generatedInsight.safety.flags.length > 0,
-        safeguardingNotes: generatedInsight.safety.escalation_text || null,
+        output: finalNarrative,
+        isUrgent: allFlags.length > 0,
+        safeguardingNotes: escalationText || null,
       };
 
-      // Step 9: Save insight to children table
+      // Step 12: Save insight to children table
       await saveInsight(supabase, job.child_id, safeResult);
 
-      // Step 10: Mark job completed
+      // Step 13: Mark job completed
       await updateJob(supabase, job.id, { 
         status: "completed", 
         completed_at: new Date().toISOString() 
@@ -563,6 +579,160 @@ function parseDurationToSeconds(duration: string | null): number | null {
   if (!isNaN(numeric)) return numeric * 60; // Assume minutes if just a number
   
   return null;
+}
+
+// ============================================================================
+// Safety Check - Deterministic safety validation
+// ============================================================================
+
+const URGENT_SAFEGUARDING_TEXT = `URGENT: We've detected events that may indicate risk. Please contact the child's healthcare provider or emergency services if the child is in immediate danger. For school settings, escalate to your safeguarding lead. This system is NOT a diagnostic tool.`;
+
+// Patterns for concerning keywords in descriptions
+const CONCERNING_KEYWORDS = [
+  /\bcut\b/i,
+  /\bhurt\s*(them)?sel(f|ves)\b/i,
+  /\bhit\s*head\b/i,
+  /\bran\s*away\b/i,
+  /\beloped?\b/i,
+  /\bself[- ]?harm/i,
+  /\bself[- ]?injur/i,
+  /\bsuicid/i,
+  /\bbite\s*(them)?sel(f|ves)\b/i,
+  /\bbang(ing|ed)?\s*head\b/i,
+];
+
+// Patterns for diagnostic language to redact
+const DIAGNOSTIC_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = [
+  { 
+    pattern: /\b(your child|the child|this child)\s+(has|is diagnosed with|suffers from)\s+([a-zA-Z\s-]+)(disorder|syndrome|condition)?\b/gi,
+    replacement: "this pattern may be consistent with $3; consider discussing with a clinician"
+  },
+  {
+    pattern: /\bthis (is|indicates|shows|confirms|proves)\s+(that\s+)?(your child|the child)\s+(has|is)\s+([a-zA-Z\s-]+)\b/gi,
+    replacement: "this may be consistent with $5; consider discussing with a clinician"
+  },
+  {
+    pattern: /\bdefinitely\s+(has|is|shows?)\b/gi,
+    replacement: "may be consistent with"
+  },
+  {
+    pattern: /\bdiagnos(is|ed|tic)\b/gi,
+    replacement: "pattern assessment"
+  },
+  {
+    pattern: /\b(clear(ly)?|obvious(ly)?|certain(ly)?)\s+(indicat(es?|ing)|shows?|has)\b/gi,
+    replacement: "may indicate"
+  },
+  {
+    pattern: /\byou should (know|understand|accept)\s+that\s+(your child|the child)\s+(has|is)\b/gi,
+    replacement: "you may want to discuss with a clinician whether the child may have"
+  },
+];
+
+/**
+ * Deterministic safety check function
+ * Runs AFTER LLM generation to flag urgent issues and redact diagnostic language
+ */
+function safetyCheck(
+  analysis: AnalysisResult,
+  meltdowns: Meltdown[],
+  draftText: string
+): SafetyCheckResult {
+  const flags: string[] = [];
+  
+  // ========== Check 1: Duration thresholds ==========
+  const durations = meltdowns
+    .map(m => parseDurationToSeconds(m.duration))
+    .filter((d): d is number => d !== null);
+  
+  // Check if any meltdown > 30 minutes (1800 seconds)
+  const maxDuration = durations.length > 0 ? Math.max(...durations) : 0;
+  if (maxDuration > 1800) {
+    flags.push("long_duration");
+    console.log(`Safety flag: long_duration (max: ${maxDuration}s)`);
+  }
+  
+  // Check if median duration > 20 minutes (1200 seconds)
+  if (durations.length > 0) {
+    const sorted = [...durations].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const medianDuration = sorted.length % 2 !== 0 
+      ? sorted[mid] 
+      : (sorted[mid - 1] + sorted[mid]) / 2;
+    
+    if (medianDuration > 1200) {
+      flags.push("median_duration_high");
+      console.log(`Safety flag: median_duration_high (median: ${medianDuration}s)`);
+    }
+  }
+  
+  // ========== Check 2: Concerning keywords in descriptions ==========
+  for (const meltdown of meltdowns) {
+    const textToCheck = [
+      meltdown.description,
+      meltdown.environment_description,
+    ].filter(Boolean).join(" ").toLowerCase();
+    
+    for (const pattern of CONCERNING_KEYWORDS) {
+      if (pattern.test(textToCheck)) {
+        const flagName = pattern.source.replace(/[\\^$.*+?()[\]{}|]/g, '').slice(0, 20);
+        if (!flags.includes(`concerning_text_${flagName}`)) {
+          flags.push(`concerning_text_${flagName}`);
+          console.log(`Safety flag: concerning text found matching pattern`);
+        }
+      }
+    }
+  }
+  
+  // ========== Check 3: Resolution effectiveness ==========
+  // Flag if no successful strategies across many events
+  if (analysis.resolution_effectiveness && analysis.resolution_effectiveness.length > 0) {
+    const totalHelped = analysis.resolution_effectiveness.reduce((sum, r) => sum + r.helped_count, 0);
+    const totalEvents = meltdowns.length;
+    
+    // Flag if we have 5+ events and no strategies helped
+    if (totalEvents >= 5 && totalHelped === 0) {
+      flags.push("no_effective_strategies");
+      console.log(`Safety flag: no_effective_strategies (${totalEvents} events, 0 helped)`);
+    }
+    
+    // Also flag if common strategies never help
+    for (const strategy of analysis.resolution_effectiveness) {
+      if (strategy.helped_count === 0 && strategy.not_helped_count >= 3) {
+        if (!flags.includes("strategy_ineffective")) {
+          flags.push("strategy_ineffective");
+          console.log(`Safety flag: strategy_ineffective (${strategy.strategy} never helped)`);
+        }
+      }
+    }
+  }
+  
+  // ========== Check 4: Include safety flags from analysis ==========
+  for (const flag of analysis.safety_flags) {
+    if (!flags.includes(flag)) {
+      flags.push(flag);
+    }
+  }
+  
+  // ========== Redact diagnostic language ==========
+  let outputText = draftText;
+  for (const { pattern, replacement } of DIAGNOSTIC_PATTERNS) {
+    outputText = outputText.replace(pattern, replacement);
+  }
+  
+  // ========== Determine if urgent and build escalation text ==========
+  const isUrgent = flags.length > 0;
+  let escalationText = "";
+  
+  if (isUrgent) {
+    escalationText = URGENT_SAFEGUARDING_TEXT;
+  }
+  
+  return {
+    output_text: outputText,
+    flags,
+    escalation_text: escalationText,
+  };
 }
 
 // ============================================================================
