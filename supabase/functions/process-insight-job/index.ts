@@ -132,6 +132,13 @@ interface SafetyCheckResult {
   escalation_text: string;
 }
 
+// LLM Safety Review result interface
+interface SafetyReviewResult {
+  ok: boolean;
+  issues?: string[];
+  edits?: string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -220,26 +227,30 @@ serve(async (req) => {
       const generatedInsight = await generateInsightForChild(openai, analysis, evidence, child);
       console.log("Generated structured insight for child:", child.name);
 
-      // Step 9: Run deterministic safety check on analysis + draft insight
-      const safetyCheckResult = safetyCheck(analysis, meltdowns, generatedInsight.narrative_markdown);
-      console.log("Safety check complete, flags:", safetyCheckResult.flags);
+      // Step 9: Run LLM safety review on draft insight
+      const reviewedNarrative = await safetyReview(openai, generatedInsight);
+      console.log("LLM safety review complete");
 
-      // Step 10: Merge safety check results with generated insight
+      // Step 10: Run deterministic safety check on analysis + reviewed insight
+      const safetyCheckResult = safetyCheck(analysis, meltdowns, reviewedNarrative);
+      console.log("Deterministic safety check complete, flags:", safetyCheckResult.flags);
+
+      // Step 11: Merge safety check results with generated insight
       const finalNarrative = safetyCheckResult.output_text;
       const allFlags = [...new Set([...generatedInsight.safety.flags, ...safetyCheckResult.flags])];
       const escalationText = safetyCheckResult.escalation_text || generatedInsight.safety.escalation_text;
 
-      // Step 11: Convert to SafetyResult format for saving
+      // Step 12: Convert to SafetyResult format for saving
       const safeResult: SafetyResult = {
         output: finalNarrative,
         isUrgent: allFlags.length > 0,
         safeguardingNotes: escalationText || null,
       };
 
-      // Step 12: Save insight to children table
+      // Step 13: Save insight to children table
       await saveInsight(supabase, job.child_id, safeResult);
 
-      // Step 13: Mark job completed
+      // Step 14: Mark job completed
       await updateJob(supabase, job.id, { 
         status: "completed", 
         completed_at: new Date().toISOString() 
@@ -733,6 +744,78 @@ function safetyCheck(
     flags,
     escalation_text: escalationText,
   };
+}
+
+// ============================================================================
+// LLM Safety Review - Second pass review for diagnostic claims
+// ============================================================================
+
+const SYSTEM_PROMPT_SAFETY_REVIEW = `You are a safety reviewer. Your job: scan the draft JSON and return either {"ok":true} or {"ok":false, "issues":[...], "edits":"<new narrative markdown>"} — only valid JSON.`;
+
+/**
+ * LLM-based safety review to catch diagnostic claims and unsafe recommendations
+ * Runs after generateInsightForChild but before the deterministic safetyCheck
+ */
+async function safetyReview(
+  openai: OpenAI,
+  draft: GeneratedInsight
+): Promise<string> {
+  const draftJson = JSON.stringify(draft, null, 2);
+  
+  const userPrompt = `DRAFT_JSON: ${draftJson}
+
+RULES:
+- If draft contains diagnostic claims -> ok:false, issues:[...], provide edits replacing diagnostic claim with hedged language.
+- If draft suggests ignoring urgent actions when safety flags present -> ok:false.
+- If ok:true, just return {"ok":true}
+- If ok:false, return {"ok":false, "issues":["issue1", "issue2"], "edits":"<corrected narrative_markdown with hedged language>"}
+
+Return ONLY valid JSON. No commentary.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT_SAFETY_REVIEW },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 2000,
+      temperature: 0.1, // Low temperature for consistent safety review
+    });
+
+    const content = response.choices[0].message.content || '{"ok":true}';
+    
+    // Extract JSON from response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log("Safety review: No JSON found, using original narrative");
+      return draft.narrative_markdown;
+    }
+    
+    const reviewResult = JSON.parse(jsonMatch[0]) as SafetyReviewResult;
+    
+    if (reviewResult.ok) {
+      console.log("Safety review: OK, no issues found");
+      return draft.narrative_markdown;
+    }
+    
+    // ok: false - apply edits if provided
+    console.log("Safety review: Issues found:", reviewResult.issues);
+    
+    if (reviewResult.edits && reviewResult.edits.trim()) {
+      console.log("Safety review: Applying LLM edits");
+      return reviewResult.edits;
+    }
+    
+    // No edits provided, return original
+    console.log("Safety review: No edits provided, using original");
+    return draft.narrative_markdown;
+    
+  } catch (error) {
+    console.error("Safety review failed:", error);
+    // On error, return original - the deterministic safetyCheck will still run
+    return draft.narrative_markdown;
+  }
 }
 
 // ============================================================================
