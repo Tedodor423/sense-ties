@@ -147,6 +147,36 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          created_at: string
+          email_sent: boolean
+          id: string
+          is_anonymous: boolean
+          message: string
+          rating: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_sent?: boolean
+          id?: string
+          is_anonymous?: boolean
+          message: string
+          rating: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_sent?: boolean
+          id?: string
+          is_anonymous?: boolean
+          message?: string
+          rating?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       insight_jobs: {
         Row: {
           child_id: string

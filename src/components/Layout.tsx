@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Menu, ExternalLink } from 'lucide-react';
+import { Menu, ExternalLink, MessageSquare } from 'lucide-react';
 import logo from '@/assets/logo.svg';
 
 import {
@@ -24,6 +24,7 @@ export function Layout({ children }: LayoutProps) {
     { to: '/log-meltdown', label: 'Log an Event', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
     { to: '/data', label: 'Data', roles: ['Clinician', 'Admin'] },
     { to: '/settings', label: user?.role === 'Admin' ? 'Admin Settings (for ALL users!)' : 'Settings', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'] },
+    { to: '/feedback', label: 'Give Feedback', roles: ['Parent', 'Teacher', 'Clinician', 'Admin'], icon: MessageSquare },
   ];
 
   const visibleLinks = navLinks.filter(link => 
