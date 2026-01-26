@@ -393,8 +393,11 @@ export default function LogMeltdown() {
 
       toast.success('Event logged successfully! Insights will be generated in the background.');
       
-      // Note: Insights are now generated via database trigger (queue_insight_job)
-      // No need to call generate-insights directly - the trigger handles rate limiting
+      // Trigger the edge function to process any pending insight jobs
+      // The database trigger creates the job, but we need to invoke processing
+      supabase.functions.invoke('process-insight-job').catch((err) => {
+        console.log('Background insight processing triggered (may already be running):', err);
+      });
       
       // Reset form
       resetForm();
