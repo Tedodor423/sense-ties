@@ -8,7 +8,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { User } from 'lucide-react';
 import { Database } from '@/types/database';
 import { formatAge } from '@/lib/validation';
-import { InsightJobStatus } from '@/components/InsightJobStatus';
 
 type Child = Database['public']['Tables']['children']['Row'];
 
@@ -98,17 +97,12 @@ export default function Dashboard() {
                   onClick={() => navigate(`/child/${child.id}`)}
                 >
                   <CardContent className="pt-6">
-                    <div className="text-center mb-4">
+                    <div className="text-center">
                       <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                         <User className="w-10 h-10 text-primary" />
                       </div>
                       <h3 className="text-xl font-heading font-bold">{child.name}</h3>
                       <p className="text-muted-foreground mt-1">{formatAge(child.birth_month, child.birth_year)}</p>
-                    </div>
-                    
-                    {/* Job Status Section */}
-                    <div className="border-t pt-4 mt-4">
-                      <InsightJobStatus childId={child.id} childName={child.name} />
                     </div>
                   </CardContent>
                 </Card>

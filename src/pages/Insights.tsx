@@ -11,6 +11,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { formatAge } from '@/lib/validation';
+import { InsightJobStatus } from '@/components/InsightJobStatus';
 
 interface Child {
   id: string;
@@ -298,7 +299,11 @@ export default function Insights() {
                   </p>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Job Status Indicator */}
+                {selectedChildId && (
+                  <InsightJobStatus childId={selectedChildId} childName={selectedChild?.name || ''} />
+                )}
                 <p className="text-foreground whitespace-pre-wrap">{insights}</p>
               </CardContent>
             </Card>
