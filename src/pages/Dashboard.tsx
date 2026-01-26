@@ -152,11 +152,23 @@ export default function Dashboard() {
                       </div>
                       <Button
                         variant="outline"
-                        className="w-full mt-4 rounded-xl"
+                        className="w-full mt-4 rounded-xl transition-colors"
                         style={themeColor ? {
                           borderColor: `hsl(${themeColor})`,
                           color: `hsl(${themeColor})`,
-                        } : undefined}
+                          '--child-theme-color': `hsl(${themeColor})`,
+                          '--child-theme-color-light': `hsl(${themeColor} / 0.1)`,
+                        } as React.CSSProperties : undefined}
+                        onMouseEnter={(e) => {
+                          if (themeColor) {
+                            e.currentTarget.style.backgroundColor = `hsl(${themeColor} / 0.1)`;
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (themeColor) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           navigate(`/log-meltdown?childId=${child.id}`);
