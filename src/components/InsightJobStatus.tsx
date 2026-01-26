@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, XCircle, Clock, Sparkles } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 interface InsightJob {
   id: string;
@@ -111,20 +111,6 @@ export function InsightJobStatus({ childId, childName }: InsightJobStatusProps) 
     }
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
 
   if (loading) {
     return (
@@ -137,21 +123,7 @@ export function InsightJobStatus({ childId, childName }: InsightJobStatusProps) 
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">AI Insights</span>
-        </div>
-        {getStatusBadge()}
-      </div>
-      
-      {latestJob && (
-        <div className="text-xs text-muted-foreground">
-          <span>
-            Last run: {formatTime(latestJob.completed_at || latestJob.created_at)}
-          </span>
-        </div>
-      )}
+      {getStatusBadge()}
       
       {latestJob?.status === 'error' && latestJob.error_message && (
         <p className="text-xs text-destructive mt-1 line-clamp-2">
