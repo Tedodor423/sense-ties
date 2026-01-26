@@ -12,6 +12,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 
 import { Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { formatAge } from '@/lib/validation';
 import { InsightJobStatus } from '@/components/InsightJobStatus';
+import { useChildTheme } from '@/hooks/useChildTheme';
 
 interface Child {
   id: string;
@@ -255,6 +256,9 @@ export default function Insights() {
   }
 
   const selectedChild = children.find((c) => c.id === selectedChildId);
+  
+  // Apply child's theme color
+  useChildTheme((selectedChild as any)?.theme_color);
 
   return (
     <ProtectedRoute>

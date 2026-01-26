@@ -22,6 +22,7 @@ import {
   User, ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { Database } from '@/types/database';
+import { useChildTheme } from '@/hooks/useChildTheme';
 
 type Child = Database['public']['Tables']['children']['Row'];
 
@@ -177,6 +178,9 @@ export default function LogMeltdown() {
   };
 
   const selectedChild = children.find(c => c.id === selectedChildId);
+  
+  // Apply child's theme color
+  useChildTheme((selectedChild as any)?.theme_color);
 
   const toggleOption = (
     value: string,

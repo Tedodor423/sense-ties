@@ -16,6 +16,8 @@ import { Switch } from '@/components/ui/switch';
 import { childSchema, shareEmailSchema, validateForm, formatAge } from '@/lib/validation';
 import { ArticleManagement } from '@/components/ArticleManagement';
 import { AIPromptEditor } from '@/components/AIPromptEditor';
+import { ChildAvatarUpload } from '@/components/ChildAvatarUpload';
+import { ChildColorPicker } from '@/components/ChildColorPicker';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +45,8 @@ export default function Settings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteAccountDialogOpen, setDeleteAccountDialogOpen] = useState(false);
   const [saveSensitiveInfo, setSaveSensitiveInfo] = useState(false);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [themeColor, setThemeColor] = useState('default');
 
   useEffect(() => {
     if (user) {
@@ -58,9 +62,11 @@ export default function Settings() {
       setChildName('');
       setBirthMonth('');
       setBirthYear('');
+      setAvatarPath(null);
+      setThemeColor('default');
       setSharedUsers([]);
     }
-  }, [selectedChildId]);
+  }, [selectedChildId, children]);
 
   const fetchChildren = async () => {
     if (!user) return;
@@ -104,6 +110,8 @@ export default function Settings() {
       setChildName(child.name);
       setBirthMonth(child.birth_month?.toString() || '');
       setBirthYear(child.birth_year?.toString() || '');
+      setAvatarPath((child as any).avatar_path || null);
+      setThemeColor((child as any).theme_color || 'default');
     }
   };
 
@@ -163,6 +171,8 @@ export default function Settings() {
           name: validation.data!.name,
           birth_month: validation.data!.birth_month,
           birth_year: validation.data!.birth_year,
+          avatar_path: avatarPath,
+          theme_color: themeColor,
         } as any);
 
         if (error) throw error;
@@ -175,6 +185,8 @@ export default function Settings() {
             name: validation.data!.name,
             birth_month: validation.data!.birth_month,
             birth_year: validation.data!.birth_year,
+            avatar_path: avatarPath,
+            theme_color: themeColor,
           })
           .eq('id', selectedChildId);
 
@@ -400,6 +412,22 @@ export default function Settings() {
                     />
                   </div>
                 </div>
+
+                {/* Avatar Upload - only show when editing existing child */}
+                {selectedChildId !== 'new' && (
+                  <div className="border-t pt-4">
+                    <Label className="mb-3 block">Profile Picture</Label>
+                    <ChildAvatarUpload
+                      childId={selectedChildId}
+                      childName={childName}
+                      currentAvatarPath={avatarPath}
+                      onAvatarChange={setAvatarPath}
+                    />
+                  </div>
+                )}
+
+                {/* Color Picker */}
+                <ChildColorPicker value={themeColor} onChange={setThemeColor} />
 
                 <Button
                   onClick={handleSaveChild}

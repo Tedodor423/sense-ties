@@ -107,6 +107,7 @@ export type Database = {
       }
       children: {
         Row: {
+          avatar_path: string | null
           birth_month: number | null
           birth_year: number | null
           created_at: string | null
@@ -115,9 +116,11 @@ export type Database = {
           name: string
           parent_id: string
           rolling_summary: string | null
+          theme_color: string | null
           updated_at: string | null
         }
         Insert: {
+          avatar_path?: string | null
           birth_month?: number | null
           birth_year?: number | null
           created_at?: string | null
@@ -126,9 +129,11 @@ export type Database = {
           name: string
           parent_id: string
           rolling_summary?: string | null
+          theme_color?: string | null
           updated_at?: string | null
         }
         Update: {
+          avatar_path?: string | null
           birth_month?: number | null
           birth_year?: number | null
           created_at?: string | null
@@ -137,6 +142,7 @@ export type Database = {
           name?: string
           parent_id?: string
           rolling_summary?: string | null
+          theme_color?: string | null
           updated_at?: string | null
         }
         Relationships: []
