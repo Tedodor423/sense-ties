@@ -46,12 +46,24 @@ All colors MUST be HSL.
     
     /* Child theme color - dynamically set via JS */
     --child-theme-color: 204 65% 69%;
+    
+    /* Fixed brand color that never changes */
+    --brand-primary: 204 65% 69%;
   }
 
-  /* When child theme is active, override primary color */
+  /* When child theme is active, override primary color but preserve brand */
   .child-theme-active {
     --primary: var(--child-theme-color);
     --ring: var(--child-theme-color);
+  }
+
+  /* Header elements should always use the original brand color */
+  .brand-primary-text {
+    color: hsl(var(--brand-primary)) !important;
+  }
+  
+  .brand-primary-hover:hover {
+    background-color: hsl(var(--brand-primary) / 0.1) !important;
   }
 
   * {

@@ -2,14 +2,14 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 const THEME_COLORS = [
-  { id: 'default', name: 'Default', hsl: '262 83% 58%' }, // Primary purple
-  { id: 'blue', name: 'Blue', hsl: '217 91% 60%' },
-  { id: 'green', name: 'Green', hsl: '142 71% 45%' },
-  { id: 'orange', name: 'Orange', hsl: '25 95% 53%' },
-  { id: 'pink', name: 'Pink', hsl: '330 81% 60%' },
-  { id: 'teal', name: 'Teal', hsl: '174 72% 40%' },
-  { id: 'red', name: 'Red', hsl: '0 72% 51%' },
-  { id: 'indigo', name: 'Indigo', hsl: '239 84% 67%' },
+  { id: 'default', name: 'Default', hsl: '204 65% 69%' }, // Soft Blue (original primary)
+  { id: 'coral', name: 'Coral', hsl: '0 77% 82%' }, // Pastel coral from accent
+  { id: 'yellow', name: 'Yellow', hsl: '45 89% 80%' }, // Pastel warm yellow from secondary
+  { id: 'lavender', name: 'Lavender', hsl: '262 60% 80%' }, // Pastel purple
+  { id: 'mint', name: 'Mint', hsl: '142 50% 75%' }, // Pastel green
+  { id: 'peach', name: 'Peach', hsl: '25 80% 80%' }, // Pastel orange
+  { id: 'sky', name: 'Sky', hsl: '204 80% 82%' }, // Lighter soft blue
+  { id: 'rose', name: 'Rose', hsl: '330 60% 80%' }, // Pastel pink
 ];
 
 interface ChildColorPickerProps {
