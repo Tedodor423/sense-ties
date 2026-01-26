@@ -9,6 +9,7 @@ import { Tables } from '@/integrations/supabase/types';
 import { format } from 'date-fns';
 import { PlusCircle, Lightbulb, MapPin, Gauge, Calendar, ImageIcon } from 'lucide-react';
 import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
+import { useChildTheme } from '@/hooks/useChildTheme';
 
 type Child = Tables<'children'>;
 type Meltdown = Tables<'meltdowns'>;
@@ -64,6 +65,9 @@ export default function ChildInfo() {
   };
 
   const lastMeltdown = meltdowns[0];
+  
+  // Apply child's theme color
+  useChildTheme((child as any)?.theme_color);
 
   return (
     <ProtectedRoute>
