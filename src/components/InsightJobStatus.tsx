@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, XCircle, Clock, Sparkles, ExternalLink } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Loader2, CheckCircle2, XCircle, Clock, Sparkles } from 'lucide-react';
 
 interface InsightJob {
   id: string;
@@ -21,7 +19,6 @@ interface InsightJobStatusProps {
 export function InsightJobStatus({ childId, childName }: InsightJobStatusProps) {
   const [latestJob, setLatestJob] = useState<InsightJob | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchLatestJob();
@@ -95,7 +92,7 @@ export function InsightJobStatus({ childId, childName }: InsightJobStatusProps) 
         return (
           <Badge variant="default" className="flex items-center gap-1 bg-green-600">
             <CheckCircle2 className="h-3 w-3" />
-            Ready
+            Insights up to date
           </Badge>
         );
       case 'error':
@@ -149,24 +146,10 @@ export function InsightJobStatus({ childId, childName }: InsightJobStatusProps) 
       </div>
       
       {latestJob && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           <span>
             Last run: {formatTime(latestJob.completed_at || latestJob.created_at)}
           </span>
-          {latestJob.status === 'completed' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/insights?childId=${childId}`);
-              }}
-            >
-              View Report
-              <ExternalLink className="h-3 w-3 ml-1" />
-            </Button>
-          )}
         </div>
       )}
       
