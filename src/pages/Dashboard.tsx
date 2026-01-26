@@ -5,7 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Card, CardContent } from '@/components/ui/card';
-import { User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { User, Plus } from 'lucide-react';
 import { Database } from '@/types/database';
 import { formatAge } from '@/lib/validation';
 
@@ -104,6 +105,17 @@ export default function Dashboard() {
                       <h3 className="text-xl font-heading font-bold">{child.name}</h3>
                       <p className="text-muted-foreground mt-1">{formatAge(child.birth_month, child.birth_year)}</p>
                     </div>
+                    <Button
+                      variant="outline"
+                      className="w-full mt-4 rounded-xl"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/log-meltdown?childId=${child.id}`);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Log an event
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
