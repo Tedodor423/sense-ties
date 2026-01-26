@@ -37,7 +37,11 @@ export function Layout({ children }: LayoutProps) {
         <Link key={link.to} to={link.to}>
           <Button
             variant={location.pathname === link.to ? 'default' : 'ghost'}
-            className="w-full justify-start"
+            className={`w-full justify-start ${location.pathname !== link.to ? 'brand-primary-hover' : ''}`}
+            style={location.pathname === link.to ? { 
+              backgroundColor: 'hsl(var(--brand-primary))',
+              color: 'hsl(var(--primary-foreground))'
+            } : undefined}
           >
             {link.label}
           </Button>
@@ -53,7 +57,7 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-3">
               <img src={logo} alt="SenseTies Logo" className="h-8 w-8" />
-              <h1 className="text-2xl font-heading font-bold text-primary">SenseTies</h1>
+              <h1 className="text-2xl font-heading font-bold brand-primary-text">SenseTies</h1>
             </Link>
             <Button variant="outline" size="sm" asChild className="hidden sm:flex">
               <a href="https://senseties.com" target="_blank" rel="noopener noreferrer">
