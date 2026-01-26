@@ -266,6 +266,15 @@ export default function LogMeltdown() {
       newErrors.precedingActivities = true;
       isValid = false;
     }
+
+    // Check child feelings (including otherFeeling)
+    const allFeelings = [...childState];
+    if (otherFeeling.trim()) allFeelings.push(otherFeeling.trim());
+    if (allFeelings.length === 0) {
+      toast.error('Please select at least one feeling');
+      newErrors.childState = true;
+      isValid = false;
+    }
     
     setErrors(prev => ({ ...prev, ...newErrors }));
     return isValid;
@@ -694,15 +703,21 @@ export default function LogMeltdown() {
                 </div>
 
                 <div className="space-y-3">
-                  <Label>Was {selectedChild?.name || 'the child'} feeling:</Label>
+                  <Label className={errors.childState ? 'text-destructive' : ''}>
+                    Was {selectedChild?.name || 'the child'} feeling: *
+                  </Label>
                   <div className="grid grid-cols-2 gap-2">
                     {FEELING_OPTIONS.map(option => (
                       <MultiSelectButton
                         key={option.id}
                         {...option}
                         selected={childState.includes(option.id)}
-                        onClick={() => toggleOption(option.id, childState, setChildState)}
+                        onClick={() => {
+                          toggleOption(option.id, childState, setChildState);
+                          setErrors(prev => ({ ...prev, childState: false }));
+                        }}
                         compact
+                        hasError={errors.childState && !childState.includes(option.id)}
                       />
                     ))}
                   </div>
@@ -711,8 +726,11 @@ export default function LogMeltdown() {
                     <Input
                       placeholder="Other feeling..."
                       value={otherFeeling}
-                      onChange={(e) => setOtherFeeling(e.target.value)}
-                      className="rounded-xl"
+                      onChange={(e) => {
+                        setOtherFeeling(e.target.value);
+                        if (e.target.value.trim()) setErrors(prev => ({ ...prev, childState: false }));
+                      }}
+                      className={`rounded-xl ${errors.childState ? 'border-destructive' : ''}`}
                     />
                   </div>
                 </div>
