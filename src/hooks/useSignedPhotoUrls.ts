@@ -25,6 +25,14 @@ export function useSignedPhotoUrls(photoPaths: string[] | null | undefined) {
     if (pathsToFetch.length === 0) return;
 
     const fetchSignedUrls = async () => {
+      // Check if user is authenticated before making request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // User not logged in, skip fetching
+        pathsToFetch.forEach(path => fetchedPathsRef.current.delete(path));
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
@@ -66,6 +74,12 @@ export function useSignedPhotoUrls(photoPaths: string[] | null | undefined) {
 // Helper to get a single signed URL
 export async function getSignedPhotoUrl(filePath: string): Promise<string | null> {
   try {
+    // Check if user is authenticated before making request
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return null;
+    }
+
     const { data, error } = await supabase.functions.invoke('get-photo-url', {
       body: { filePath },
     });
