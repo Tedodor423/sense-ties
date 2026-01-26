@@ -84,15 +84,38 @@ export default function Dashboard() {
           ) : children.length === 0 ? (
             <Card className="rounded-2xl">
               <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-6">
                   {user?.role === 'Parent' 
-                    ? 'No children added yet. Go to Settings to add a child.' 
+                    ? 'No children added yet. Add your first child to get started.' 
                     : 'No children have been shared with you yet.'}
                 </p>
+                {user?.role === 'Parent' && (
+                  <Button
+                    size="lg"
+                    className="rounded-xl text-lg px-8 py-6"
+                    onClick={() => navigate('/settings')}
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    Add Your First Child
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <>
+              {user?.role === 'Parent' && (
+                <div className="mb-6">
+                  <Button
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => navigate('/settings')}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add New Child
+                  </Button>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {children.map((child) => {
                 const themeColor = child.theme_color && child.theme_color !== 'default' 
                   ? getThemeColorHsl(child.theme_color) 
@@ -146,7 +169,8 @@ export default function Dashboard() {
                   </Card>
                 );
               })}
-            </div>
+              </div>
+            </>
           )}
         </div>
       </Layout>
