@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tables } from '@/integrations/supabase/types';
 import { format } from 'date-fns';
-import { PlusCircle, Lightbulb, MapPin, Gauge, Calendar, ImageIcon } from 'lucide-react';
+import { PlusCircle, Lightbulb, MapPin, Gauge, Calendar, ImageIcon, Settings } from 'lucide-react';
 import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
 import { useChildTheme } from '@/hooks/useChildTheme';
 import { ChildAvatar } from '@/components/ChildAvatar';
@@ -100,6 +100,11 @@ export default function ChildInfo() {
                     <Link to={`/insights?childId=${childId}`}>
                       <Lightbulb className="h-4 w-4 mr-2" />
                       Insights
+                    </Link>
+                  </Button>
+                  <Button variant="outline" size="icon" asChild>
+                    <Link to={`/settings?childId=${childId}`}>
+                      <Settings className="h-4 w-4" />
                     </Link>
                   </Button>
                 </div>
