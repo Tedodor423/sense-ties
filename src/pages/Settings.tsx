@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { Database } from '@/types/database';
 import { Switch } from '@/components/ui/switch';
@@ -34,6 +34,7 @@ type Child = Database['public']['Tables']['children']['Row'];
 export default function Settings() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string>('new');
   const [childName, setChildName] = useState('');
@@ -50,9 +51,15 @@ export default function Settings() {
 
   useEffect(() => {
     if (user) {
-      fetchChildren();
+      fetchChildren().then(() => {
+        // Check for childId in URL params after children are loaded
+        const childIdParam = searchParams.get('childId');
+        if (childIdParam) {
+          setSelectedChildId(childIdParam);
+        }
+      });
     }
-  }, [user]);
+  }, [user, searchParams]);
 
   useEffect(() => {
     if (selectedChildId && selectedChildId !== 'new') {
