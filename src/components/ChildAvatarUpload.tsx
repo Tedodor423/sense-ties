@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
+import { ImageCropEditor } from './ImageCropEditor';
 
 interface ChildAvatarUploadProps {
   childId: string;
@@ -20,12 +21,14 @@ export function ChildAvatarUpload({
   onAvatarChange,
 }: ChildAvatarUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showCropEditor, setShowCropEditor] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { signedUrls } = useSignedPhotoUrls(currentAvatarPath ? [currentAvatarPath] : []);
   const avatarUrl = currentAvatarPath ? signedUrls.get(currentAvatarPath) : null;
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -41,12 +44,25 @@ export function ChildAvatarUpload({
       return;
     }
 
+    // Open crop editor
+    setSelectedFile(file);
+    setShowCropEditor(true);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setShowCropEditor(false);
+    setSelectedFile(null);
     setUploading(true);
 
     try {
-      // Create FormData for upload
+      // Create FormData for upload with cropped image
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', croppedBlob, `avatar_${childId}_${Date.now()}.jpg`);
       formData.append('childId', childId);
 
       // Get current session for auth
@@ -82,6 +98,11 @@ export function ChildAvatarUpload({
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleCropCancel = () => {
+    setShowCropEditor(false);
+    setSelectedFile(null);
   };
 
   const handleRemoveAvatar = () => {
@@ -147,6 +168,15 @@ export function ChildAvatarUpload({
         </Button>
         <p className="text-xs text-muted-foreground">Max 5MB, JPG or PNG</p>
       </div>
+
+      {selectedFile && (
+        <ImageCropEditor
+          imageFile={selectedFile}
+          open={showCropEditor}
+          onClose={handleCropCancel}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 }
