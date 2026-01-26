@@ -244,11 +244,6 @@ export default function LogMeltdown() {
     const newErrors: Record<string, boolean> = {};
     let isValid = true;
 
-    if (!location.trim()) {
-      toast.error('Please enter a location');
-      newErrors.location = true;
-      isValid = false;
-    }
     const allEnvironmentSelections = [...environmentFactors];
     if (locationInOut) allEnvironmentSelections.push(locationInOut);
     if (allEnvironmentSelections.length === 0) {
@@ -557,15 +552,11 @@ export default function LogMeltdown() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label className={errors.location ? 'text-destructive' : ''}>Location *</Label>
+                  <Label>Location</Label>
                   <LocationSearch
                     value={location}
-                    onChange={(val) => {
-                      setLocation(val);
-                      if (val.trim()) setErrors(prev => ({ ...prev, location: false }));
-                    }}
+                    onChange={setLocation}
                     placeholder="Search for a location..."
-                    hasError={errors.location}
                   />
                 </div>
 
