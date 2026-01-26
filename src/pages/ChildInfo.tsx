@@ -30,6 +30,9 @@ export default function ChildInfo() {
 
   const { signedUrls, loading: photosLoading } = useSignedPhotoUrls(allPhotoPaths);
 
+  // Apply child's theme color - must be called unconditionally before any early returns
+  useChildTheme(child?.theme_color);
+
   useEffect(() => {
     if (childId) {
       fetchChildData();
@@ -65,9 +68,6 @@ export default function ChildInfo() {
   };
 
   const lastMeltdown = meltdowns[0];
-  
-  // Apply child's theme color
-  useChildTheme((child as any)?.theme_color);
 
   return (
     <ProtectedRoute>
