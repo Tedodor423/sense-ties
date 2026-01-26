@@ -13,6 +13,7 @@ import LogMeltdown from "./pages/LogMeltdown";
 import Insights from "./pages/Insights";
 import Data from "./pages/Data";
 import Settings from "./pages/Settings";
+import Feedback from "./pages/Feedback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/insights" element={<Insights />} />
           <Route path="/data" element={<Data />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/feedback" element={<Feedback />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
