@@ -236,9 +236,66 @@ export default function LogMeltdown() {
     return uploadedUrls;
   };
 
+  // Validation for Step 2 (Environment)
+  const validateStep2 = (): boolean => {
+    if (!location.trim()) {
+      toast.error('Please enter a location');
+      return false;
+    }
+    const allEnvironmentSelections = [...environmentFactors];
+    if (locationInOut) allEnvironmentSelections.push(locationInOut);
+    if (allEnvironmentSelections.length === 0) {
+      toast.error('Please select at least one environment factor');
+      return false;
+    }
+    return true;
+  };
+
+  // Validation for Step 3 (Preceding activities)
+  const validateStep3 = (): boolean => {
+    if (precedingActivities.length === 0) {
+      toast.error('Please select at least one preceding activity');
+      return false;
+    }
+    return true;
+  };
+
+  // Validation for Step 4 (Meltdown details)
+  const validateStep4 = (): boolean => {
+    if (!eventDateTime) {
+      toast.error('Please select a date and time');
+      return false;
+    }
+    if (!duration) {
+      toast.error('Please select a duration');
+      return false;
+    }
+    if (duration === 'custom' && !customDuration.trim()) {
+      toast.error('Please enter a custom duration');
+      return false;
+    }
+    return true;
+  };
+
+  // Validation for Step 5 (Resolution)
+  const validateStep5 = (): boolean => {
+    const allResolutions = [...resolutionStrategies];
+    if (otherResolution.trim()) allResolutions.push(otherResolution.trim());
+    if (allResolutions.length === 0) {
+      toast.error('Please select at least one resolution strategy');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async () => {
     if (!selectedChildId) {
       toast.error('Please select a child');
+      return;
+    }
+
+    // Run all validations
+    if (!validateStep2() || !validateStep3() || !validateStep4() || !validateStep5()) {
       return;
     }
 
@@ -557,7 +614,7 @@ export default function LogMeltdown() {
                       <ChevronLeft className="w-4 h-4 mr-2" /> Back
                     </Button>
                   )}
-                  <Button onClick={() => setStep(3)} className="flex-1 rounded-xl">
+                  <Button onClick={() => { if (validateStep2()) setStep(3); }} className="flex-1 rounded-xl">
                     Next <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -618,7 +675,7 @@ export default function LogMeltdown() {
                   <Button variant="outline" onClick={() => setStep(2)} className="rounded-xl">
                     <ChevronLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
-                  <Button onClick={() => setStep(4)} className="flex-1 rounded-xl">
+                  <Button onClick={() => { if (validateStep3()) setStep(4); }} className="flex-1 rounded-xl">
                     Next <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -696,7 +753,7 @@ export default function LogMeltdown() {
                   <Button variant="outline" onClick={() => setStep(3)} className="rounded-xl">
                     <ChevronLeft className="w-4 h-4 mr-2" /> Back
                   </Button>
-                  <Button onClick={() => setStep(5)} className="flex-1 rounded-xl">
+                  <Button onClick={() => { if (validateStep4()) setStep(5); }} className="flex-1 rounded-xl">
                     Next <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
