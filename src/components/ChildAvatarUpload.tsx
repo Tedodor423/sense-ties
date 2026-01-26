@@ -44,34 +44,42 @@ export function ChildAvatarUpload({
     setUploading(true);
 
     try {
-      // Convert to base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = (reader.result as string).split(',')[1];
-        
-        const { data, error } = await supabase.functions.invoke('upload-photo', {
-          body: {
-            fileData: base64Data,
-            fileName: `avatar_${childId}_${Date.now()}.${file.name.split('.').pop()}`,
-            contentType: file.type,
-            folder: 'avatars',
+      // Create FormData for upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('childId', childId);
+
+      // Get current session for auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `https://wudwwgobdpimqbgjypvq.supabase.co/functions/v1/upload-photo`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
           },
-        });
-
-        if (error) throw error;
-
-        if (data?.filePath) {
-          onAvatarChange(data.filePath);
-          toast.success('Avatar uploaded successfully!');
+          body: formData,
         }
-        
-        setUploading(false);
-      };
+      );
+
+      const data = await response.json();
       
-      reader.readAsDataURL(file);
+      if (!response.ok) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      if (data?.fileName) {
+        onAvatarChange(data.fileName);
+        toast.success('Avatar uploaded successfully!');
+      }
     } catch (error: any) {
       console.error('Upload error:', error);
       toast.error(error.message || 'Failed to upload avatar');
+    } finally {
       setUploading(false);
     }
   };
