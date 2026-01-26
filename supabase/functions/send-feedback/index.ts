@@ -46,6 +46,18 @@ const handler = async (req: Request): Promise<Response> => {
     const userId = claimsData.claims.sub as string;
     const userEmail = claimsData.claims.email as string;
 
+    // Fetch user's name from users_extended
+    let userName = "Unknown User";
+    const { data: userProfile } = await supabase
+      .from("users_extended")
+      .select("first_name, last_name")
+      .eq("auth_user_id", userId)
+      .maybeSingle();
+
+    if (userProfile) {
+      userName = `${userProfile.first_name} ${userProfile.last_name}`.trim();
+    }
+
     const { rating, message, isAnonymous }: FeedbackRequest = await req.json();
 
     // Validate input
@@ -105,12 +117,16 @@ const handler = async (req: Request): Promise<Response> => {
     const ratingLabels = ["", "😞 Very Dissatisfied", "😕 Dissatisfied", "😐 Neutral", "🙂 Satisfied", "😊 Very Satisfied"];
     const ratingLabel = ratingLabels[rating] || `${rating}/5`;
 
+    const senderInfo = isAnonymous 
+      ? "Anonymous User" 
+      : `${userName}\n${userEmail}`;
+
     const emailBody = `
 New Feedback Received from SenseTies App
 
 Rating: ${ratingLabel} (${rating}/5)
 
-From: ${isAnonymous ? "Anonymous User" : userEmail}
+From: ${senderInfo}
 
 Message:
 ${message}
