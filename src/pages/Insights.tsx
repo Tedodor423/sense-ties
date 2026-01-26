@@ -10,11 +10,13 @@ import { useToast } from '@/hooks/use-toast';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import { Loader2, Sparkles, RefreshCw } from 'lucide-react';
+import { formatAge } from '@/lib/validation';
 
 interface Child {
   id: string;
   name: string;
-  age: number;
+  birth_month: number | null;
+  birth_year: number | null;
   insights: string | null;
   rolling_summary: string | null;
   updated_at: string | null;
@@ -117,7 +119,7 @@ export default function Insights() {
     try {
       const { data, error } = await supabase
         .from('children')
-        .select('id, name, age, insights, rolling_summary, updated_at')
+        .select('id, name, birth_month, birth_year, insights, rolling_summary, updated_at')
         .order('name');
 
       if (error) throw error;
@@ -275,7 +277,7 @@ export default function Insights() {
               <SelectContent>
                 {children.map((child) => (
                   <SelectItem key={child.id} value={child.id}>
-                    {child.name} ({child.age} years old)
+                    {child.name} ({formatAge(child.birth_month, child.birth_year)})
                   </SelectItem>
                 ))}
               </SelectContent>
