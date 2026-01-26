@@ -6,11 +6,13 @@ import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { User, Plus } from 'lucide-react';
-import { Database } from '@/types/database';
+import { Plus } from 'lucide-react';
 import { formatAge } from '@/lib/validation';
+import { ChildAvatar } from '@/components/ChildAvatar';
+import { getThemeColorHsl } from '@/components/ChildColorPicker';
+import { Tables } from '@/integrations/supabase/types';
 
-type Child = Database['public']['Tables']['children']['Row'];
+type Child = Tables<'children'>;
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -91,34 +93,59 @@ export default function Dashboard() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {children.map((child) => (
-                <Card
-                  key={child.id}
-                  className="rounded-2xl cursor-pointer hover:shadow-lg transition-all"
-                  onClick={() => navigate(`/child/${child.id}`)}
-                >
-                  <CardContent className="pt-6">
-                    <div className="text-center">
-                      <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                        <User className="w-10 h-10 text-primary" />
+              {children.map((child) => {
+                const themeColor = child.theme_color && child.theme_color !== 'default' 
+                  ? getThemeColorHsl(child.theme_color) 
+                  : null;
+                
+                return (
+                  <Card
+                    key={child.id}
+                    className="rounded-2xl cursor-pointer hover:shadow-lg transition-all overflow-hidden"
+                    style={themeColor ? {
+                      borderColor: `hsl(${themeColor} / 0.3)`,
+                      borderWidth: '2px',
+                    } : undefined}
+                    onClick={() => navigate(`/child/${child.id}`)}
+                  >
+                    {themeColor && (
+                      <div 
+                        className="h-2 w-full" 
+                        style={{ backgroundColor: `hsl(${themeColor})` }}
+                      />
+                    )}
+                    <CardContent className="pt-6">
+                      <div className="text-center">
+                        <div className="mx-auto mb-4">
+                          <ChildAvatar 
+                            avatarPath={child.avatar_path} 
+                            name={child.name} 
+                            size="lg"
+                            className="mx-auto"
+                          />
+                        </div>
+                        <h3 className="text-xl font-heading font-bold">{child.name}</h3>
+                        <p className="text-muted-foreground mt-1">{formatAge(child.birth_month, child.birth_year)}</p>
                       </div>
-                      <h3 className="text-xl font-heading font-bold">{child.name}</h3>
-                      <p className="text-muted-foreground mt-1">{formatAge(child.birth_month, child.birth_year)}</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full mt-4 rounded-xl"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/log-meltdown?childId=${child.id}`);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Log an event
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                      <Button
+                        variant="outline"
+                        className="w-full mt-4 rounded-xl"
+                        style={themeColor ? {
+                          borderColor: `hsl(${themeColor})`,
+                          color: `hsl(${themeColor})`,
+                        } : undefined}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/log-meltdown?childId=${child.id}`);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Log an event
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>

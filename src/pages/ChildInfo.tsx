@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { PlusCircle, Lightbulb, MapPin, Gauge, Calendar, ImageIcon } from 'lucide-react';
 import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
 import { useChildTheme } from '@/hooks/useChildTheme';
+import { ChildAvatar } from '@/components/ChildAvatar';
 
 type Child = Tables<'children'>;
 type Meltdown = Tables<'meltdowns'>;
@@ -80,7 +81,14 @@ export default function ChildInfo() {
           ) : child ? (
             <>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-                <h1 className="text-3xl font-heading font-bold">{child.name}'s Profile</h1>
+                <div className="flex items-center gap-4">
+                  <ChildAvatar 
+                    avatarPath={child.avatar_path} 
+                    name={child.name} 
+                    size="lg" 
+                  />
+                  <h1 className="text-3xl font-heading font-bold">{child.name}'s Profile</h1>
+                </div>
                 <div className="flex gap-3">
                   <Button asChild>
                     <Link to={`/log-meltdown?childId=${childId}`}>

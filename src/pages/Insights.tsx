@@ -13,6 +13,7 @@ import { Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { formatAge } from '@/lib/validation';
 import { InsightJobStatus } from '@/components/InsightJobStatus';
 import { useChildTheme } from '@/hooks/useChildTheme';
+import { ChildAvatar } from '@/components/ChildAvatar';
 
 interface Child {
   id: string;
@@ -23,6 +24,7 @@ interface Child {
   rolling_summary: string | null;
   updated_at: string | null;
   theme_color: string | null;
+  avatar_path: string | null;
 }
 
 interface TriggerData {
@@ -128,7 +130,7 @@ export default function Insights() {
     try {
       const { data, error } = await supabase
         .from('children')
-        .select('id, name, birth_month, birth_year, insights, rolling_summary, updated_at, theme_color')
+        .select('id, name, birth_month, birth_year, insights, rolling_summary, updated_at, theme_color, avatar_path')
         .order('name');
 
       if (error) throw error;
@@ -267,7 +269,16 @@ export default function Insights() {
       <Layout>
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-heading font-bold">Insights</h1>
+            <div className="flex items-center gap-4">
+              {selectedChild && (
+                <ChildAvatar 
+                  avatarPath={selectedChild.avatar_path} 
+                  name={selectedChild.name} 
+                  size="lg" 
+                />
+              )}
+              <h1 className="text-3xl font-heading font-bold">Insights</h1>
+            </div>
             {isProcessing && (
               <Badge variant="secondary" className="flex items-center gap-2">
                 <RefreshCw className="h-3 w-3 animate-spin" />
