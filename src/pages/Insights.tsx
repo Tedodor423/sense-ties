@@ -22,6 +22,7 @@ interface Child {
   insights: string | null;
   rolling_summary: string | null;
   updated_at: string | null;
+  theme_color: string | null;
 }
 
 interface TriggerData {
@@ -49,6 +50,12 @@ export default function Insights() {
   const [pendingJobs, setPendingJobs] = useState<InsightJob[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+
+  // Get selected child for theming - must be before any early returns
+  const selectedChild = children.find((c) => c.id === selectedChildId);
+  
+  // Apply child's theme color - must be called unconditionally
+  useChildTheme(selectedChild?.theme_color);
 
   useEffect(() => {
     fetchChildren();
@@ -121,7 +128,7 @@ export default function Insights() {
     try {
       const { data, error } = await supabase
         .from('children')
-        .select('id, name, birth_month, birth_year, insights, rolling_summary, updated_at')
+        .select('id, name, birth_month, birth_year, insights, rolling_summary, updated_at, theme_color')
         .order('name');
 
       if (error) throw error;
@@ -254,11 +261,6 @@ export default function Insights() {
       </ProtectedRoute>
     );
   }
-
-  const selectedChild = children.find((c) => c.id === selectedChildId);
-  
-  // Apply child's theme color
-  useChildTheme((selectedChild as any)?.theme_color);
 
   return (
     <ProtectedRoute>
