@@ -7,6 +7,7 @@ interface LocationSearchProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  hasError?: boolean;
 }
 
 interface NominatimResult {
@@ -16,7 +17,7 @@ interface NominatimResult {
   lon: string;
 }
 
-export function LocationSearch({ value, onChange, placeholder = "Search for a location..." }: LocationSearchProps) {
+export function LocationSearch({ value, onChange, placeholder = "Search for a location...", hasError = false }: LocationSearchProps) {
   const [searchQuery, setSearchQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -171,7 +172,7 @@ export function LocationSearch({ value, onChange, placeholder = "Search for a lo
             value={searchQuery}
             onChange={handleInputChange}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-            className="rounded-xl pl-9 pr-8"
+            className={`rounded-xl pl-9 pr-8 ${hasError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
           />
           {searchQuery && (
             <button
