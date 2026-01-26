@@ -306,25 +306,23 @@ Public waitlist signup (no auth required).
 ## Edge Functions
 
 ### `generate-insights`
-Generates AI-powered insights for a child based on their meltdown history.
+Simple insight generator (legacy/fallback) for direct calls.
 
-- **Trigger**: Called after logging a meltdown
+- **Trigger**: Manual call from UI
 - **Rate Limit**: 5 minutes between calls per child
 - **AI Model**: GPT-4o-mini
-- **Output**: Updates `children.insights` and `children.rolling_summary`
+- **Output**: Updates `children.insights`
 
 ### `process-article`
-Processes uploaded PDF articles for AI context.
+Processes uploaded PDF articles for AI context (RAG).
 
 - **Trigger**: Called when admin uploads a scientific article
-- **Process**: Extracts text → chunks → generates embeddings
+- **Process**: Stream-scans PDF → extracts text (250k char limit) → chunks → generates OpenAI embeddings
+- **Optimization**: Memory-efficient stream processing to prevent OOM errors on large PDFs
 - **Storage**: Supabase storage bucket `scientific-articles`
 
 ### `process-insight-job`
-Background job processor for queued insight generation.
-
-- **Trigger**: Database trigger on meltdown insert (`queue_insight_job`)
-- **Process**: Processes pending jobs from `insight_jobs` table
+**Primary AI insight generator** with multi-step pipeline. See [AI Insight Pipeline](#ai-insight-pipeline) below.
 
 ### `upload-photo`
 Handles photo uploads to Backblaze B2.
@@ -338,6 +336,153 @@ Generates signed URLs for viewing photos.
 
 - **Input**: Photo path
 - **Output**: Temporary signed URL for access
+
+---
+
+## AI Insight Pipeline
+
+The `process-insight-job` Edge Function implements a sophisticated multi-step pipeline to generate clinically-informed, safety-checked insights for each child.
+
+### Pipeline Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         AI INSIGHT GENERATION PIPELINE                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────┐
+  │ New Meltdown │
+  │   Logged     │
+  └──────┬───────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 1: JOB QUEUING                                                      │
+  │ Database trigger `queue_insight_job` creates entry in `insight_jobs`     │
+  │ Rate limited: max 1 job per child every 5 minutes                        │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 2: DATA LOADING                                                     │
+  │ Load child context (name, age) + recent meltdowns (last 30 days)         │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 3: MELTDOWN EMBEDDING                                               │
+  │ Generate OpenAI embedding for the new meltdown summary                   │
+  │ Stored in `meltdown_embeddings` for future semantic search               │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 4: DATA ANALYSIS (LLM Call #1)                                      │
+  │ GPT-4o-mini analyzes meltdowns and produces structured JSON:             │
+  │   • summary: overall behavioral summary                                  │
+  │   • stats: count, avg_duration, median_level                             │
+  │   • top_triggers: ranked triggers with supporting examples               │
+  │   • time_patterns: temporal patterns detected                            │
+  │   • resolution_effectiveness: what strategies worked                     │
+  │   • safety_flags: concerning patterns (self-injury, elopement, etc.)     │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 5: RAG EVIDENCE RETRIEVAL                                           │
+  │ For each trigger identified:                                             │
+  │   1. Generate embedding for trigger text                                 │
+  │   2. Query `article_embeddings` via HNSW vector index                    │
+  │   3. Retrieve top-k similar chunks using cosine similarity               │
+  │   4. Format citations with article titles and excerpts                   │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 6: NARRATIVE GENERATION (LLM Call #2)                               │
+  │ GPT-4o-mini generates child-focused markdown report:                     │
+  │   Sections:                                                              │
+  │   • "What we observed" - factual patterns from data                      │
+  │   • "Why this might be happening" - evidence-backed explanations         │
+  │   • "What might help" - actionable recommendations                       │
+  │   • "When to seek support" - escalation guidance                         │
+  │                                                                          │
+  │   Uses age-aware prompts and hedged clinical language                    │
+  │   ("may be consistent with..." not "the child has...")                   │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 7: LLM SAFETY REVIEW (LLM Call #3)                                  │
+  │ Second-pass LLM reviews narrative for:                                   │
+  │   • Diagnostic claims that should be observational                       │
+  │   • Unsafe or inappropriate suggestions                                  │
+  │   • Missing hedged language                                              │
+  │ Returns edited text or approval                                          │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 8: DETERMINISTIC SAFETY CHECK                                       │
+  │ Rule-based checks for high-risk patterns:                                │
+  │   • Keywords: "self-injury", "eloped", "aggression", etc.                │
+  │   • Duration thresholds (>60 min meltdowns)                              │
+  │   • Frequency thresholds (>10 events in 30 days)                         │
+  │                                                                          │
+  │ If triggered, appends URGENT safeguarding paragraph                      │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 9: DIAGNOSTIC REDACTION                                             │
+  │ Regex-based layer converts definitive language to observational:         │
+  │   "the child has autism" → "this pattern may be consistent with ASD"     │
+  │   "diagnosed with ADHD" → "behaviors that overlap with ADHD profiles"    │
+  └──────────────────────────────────────────────────────────────────────────┘
+         │
+         ▼
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │ STEP 10: SAVE & AUDIT                                                    │
+  │   • Update `children.insights` with final narrative                      │
+  │   • Insert record to `child_insights_history` with full audit trail:     │
+  │       - narrative_markdown, evidence refs, recommendations               │
+  │       - safety_flags, escalation_triggers, model used                    │
+  │   • Mark job as completed in `insight_jobs`                              │
+  └──────────────────────────────────────────────────────────────────────────┘
+```
+
+### Safety System Details
+
+The pipeline implements a **three-pass safety system**:
+
+| Pass | Type | Purpose |
+|------|------|---------|
+| 1 | **Deterministic** | Keyword/threshold checks for urgent patterns (self-injury, elopement, long durations) |
+| 2 | **LLM Review** | GPT reviews narrative for diagnostic claims and unsafe suggestions |
+| 3 | **Regex Redaction** | Pattern-based conversion of definitive language to hedged observations |
+
+### Rate Limiting
+
+- **Database trigger level**: Prevents duplicate jobs if a `pending` or `processing` job exists
+- **Cooling-off period**: 5 minutes between completed insights per child
+- **Job deduplication**: Only one active job per child at a time
+
+### Vector Search (RAG)
+
+Evidence retrieval uses:
+- **HNSW indexes** on `article_embeddings` and `meltdown_embeddings`
+- **Cosine similarity** via `1 - (embedding <#> query_embedding)`
+- **RPC function** `search_article_embeddings` for nearest-neighbor search
+
+### Output Structure
+
+The final insight includes:
+- **Narrative markdown**: Child-friendly, evidence-backed report
+- **Evidence refs**: Links to specific article chunks used
+- **Recommendations**: Actionable strategies for caregivers
+- **Escalation triggers**: When to seek professional help
+- **Safety flags**: Any concerning patterns detected
+- **Audit metadata**: Timestamp, model version, job ID
 
 ---
 
