@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tables } from '@/integrations/supabase/types';
 import { format } from 'date-fns';
-import { PlusCircle, Lightbulb, MapPin, Gauge, Calendar, ImageIcon, Settings } from 'lucide-react';
+import { PlusCircle, MapPin, Gauge, Calendar, ImageIcon, Settings } from 'lucide-react';
 import { useSignedPhotoUrls } from '@/hooks/useSignedPhotoUrls';
 import { useChildTheme } from '@/hooks/useChildTheme';
 import { ChildAvatar } from '@/components/ChildAvatar';
+import { AIInsightsSection } from '@/components/AIInsightsSection';
 
 type Child = Tables<'children'>;
 type Meltdown = Tables<'meltdowns'>;
@@ -96,12 +97,6 @@ export default function ChildInfo() {
                       Log an event
                     </Link>
                   </Button>
-                  <Button variant="outline" asChild>
-                    <Link to={`/insights?childId=${childId}`}>
-                      <Lightbulb className="h-4 w-4 mr-2" />
-                      Insights
-                    </Link>
-                  </Button>
                   <Button variant="outline" size="icon" asChild>
                     <Link to={`/settings?childId=${childId}`}>
                       <Settings className="h-4 w-4" />
@@ -148,6 +143,16 @@ export default function ChildInfo() {
                     </CardContent>
                   </Card>
                 )}
+              </div>
+
+              {/* AI Insights Section */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-heading font-semibold">AI Insights</h2>
+                <AIInsightsSection 
+                  childId={child.id} 
+                  childName={child.name} 
+                  updatedAt={child.updated_at} 
+                />
               </div>
 
               {/* Recent Meltdowns Section */}
