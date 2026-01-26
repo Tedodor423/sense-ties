@@ -114,6 +114,9 @@ export default function LogMeltdown() {
   const [photos, setPhotos] = useState<File[]>([]);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   
+  // Validation errors
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+  
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -238,54 +241,81 @@ export default function LogMeltdown() {
 
   // Validation for Step 2 (Environment)
   const validateStep2 = (): boolean => {
+    const newErrors: Record<string, boolean> = {};
+    let isValid = true;
+
     if (!location.trim()) {
       toast.error('Please enter a location');
-      return false;
+      newErrors.location = true;
+      isValid = false;
     }
     const allEnvironmentSelections = [...environmentFactors];
     if (locationInOut) allEnvironmentSelections.push(locationInOut);
     if (allEnvironmentSelections.length === 0) {
       toast.error('Please select at least one environment factor');
-      return false;
+      newErrors.environmentFactors = true;
+      isValid = false;
     }
-    return true;
+    
+    setErrors(prev => ({ ...prev, ...newErrors }));
+    return isValid;
   };
 
   // Validation for Step 3 (Preceding activities)
   const validateStep3 = (): boolean => {
+    const newErrors: Record<string, boolean> = {};
+    let isValid = true;
+
     if (precedingActivities.length === 0) {
       toast.error('Please select at least one preceding activity');
-      return false;
+      newErrors.precedingActivities = true;
+      isValid = false;
     }
-    return true;
+    
+    setErrors(prev => ({ ...prev, ...newErrors }));
+    return isValid;
   };
 
   // Validation for Step 4 (Meltdown details)
   const validateStep4 = (): boolean => {
+    const newErrors: Record<string, boolean> = {};
+    let isValid = true;
+
     if (!eventDateTime) {
       toast.error('Please select a date and time');
-      return false;
+      newErrors.eventDateTime = true;
+      isValid = false;
     }
     if (!duration) {
       toast.error('Please select a duration');
-      return false;
+      newErrors.duration = true;
+      isValid = false;
     }
     if (duration === 'custom' && !customDuration.trim()) {
       toast.error('Please enter a custom duration');
-      return false;
+      newErrors.customDuration = true;
+      isValid = false;
     }
-    return true;
+    
+    setErrors(prev => ({ ...prev, ...newErrors }));
+    return isValid;
   };
 
   // Validation for Step 5 (Resolution)
   const validateStep5 = (): boolean => {
+    const newErrors: Record<string, boolean> = {};
+    let isValid = true;
+
     const allResolutions = [...resolutionStrategies];
     if (otherResolution.trim()) allResolutions.push(otherResolution.trim());
     if (allResolutions.length === 0) {
       toast.error('Please select at least one resolution strategy');
-      return false;
+      newErrors.resolutionStrategies = true;
+      isValid = false;
     }
-    return true;
+    
+    setErrors(prev => ({ ...prev, ...newErrors }));
+    return isValid;
   };
 
   const handleSubmit = async () => {
@@ -425,7 +455,8 @@ export default function LogMeltdown() {
     icon: Icon, 
     selected, 
     onClick,
-    compact = false
+    compact = false,
+    hasError = false
   }: { 
     id: string; 
     label: string; 
@@ -433,6 +464,7 @@ export default function LogMeltdown() {
     selected: boolean; 
     onClick: () => void;
     compact?: boolean;
+    hasError?: boolean;
   }) => (
     <button
       type="button"
@@ -440,7 +472,9 @@ export default function LogMeltdown() {
       className={`${compact ? 'p-3 rounded-lg' : 'p-4 rounded-xl'} border-2 transition-all flex items-center gap-2 text-left ${
         selected
           ? 'border-primary bg-primary/10'
-          : 'border-border hover:border-primary/50'
+          : hasError
+            ? 'border-destructive bg-destructive/5 hover:border-destructive/70'
+            : 'border-border hover:border-primary/50'
       }`}
     >
       <Icon className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} flex-shrink-0`} />
@@ -523,24 +557,32 @@ export default function LogMeltdown() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Location</Label>
+                  <Label className={errors.location ? 'text-destructive' : ''}>Location *</Label>
                   <LocationSearch
                     value={location}
-                    onChange={setLocation}
+                    onChange={(val) => {
+                      setLocation(val);
+                      if (val.trim()) setErrors(prev => ({ ...prev, location: false }));
+                    }}
                     placeholder="Search for a location..."
+                    hasError={errors.location}
                   />
                 </div>
 
                 <div className="space-y-3">
-                  <Label>Select all that apply</Label>
+                  <Label className={errors.environmentFactors ? 'text-destructive' : ''}>Select all that apply *</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {ENVIRONMENT_OPTIONS.map(option => (
                       <MultiSelectButton
                         key={option.id}
                         {...option}
                         selected={environmentFactors.includes(option.id)}
-                        onClick={() => toggleOption(option.id, environmentFactors, setEnvironmentFactors)}
+                        onClick={() => {
+                          toggleOption(option.id, environmentFactors, setEnvironmentFactors);
+                          setErrors(prev => ({ ...prev, environmentFactors: false }));
+                        }}
                         compact
+                        hasError={errors.environmentFactors && !environmentFactors.includes(option.id) && locationInOut !== option.id}
                       />
                     ))}
                     {LOCATION_OPTIONS.map(option => (
@@ -548,8 +590,12 @@ export default function LogMeltdown() {
                         key={option.id}
                         {...option}
                         selected={locationInOut === option.id}
-                        onClick={() => handleLocationInOut(option.id)}
+                        onClick={() => {
+                          handleLocationInOut(option.id);
+                          setErrors(prev => ({ ...prev, environmentFactors: false }));
+                        }}
                         compact
+                        hasError={errors.environmentFactors && locationInOut !== option.id && !environmentFactors.length}
                       />
                     ))}
                   </div>
@@ -633,15 +679,21 @@ export default function LogMeltdown() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
-                  <Label>What was {selectedChild?.name || 'the child'} doing just before?</Label>
+                  <Label className={errors.precedingActivities ? 'text-destructive' : ''}>
+                    What was {selectedChild?.name || 'the child'} doing just before? *
+                  </Label>
                   <div className="grid grid-cols-2 gap-2">
                     {PRECEDING_OPTIONS.map(option => (
                       <MultiSelectButton
                         key={option.id}
                         {...option}
                         selected={precedingActivities.includes(option.id)}
-                        onClick={() => toggleOption(option.id, precedingActivities, setPrecedingActivities)}
+                        onClick={() => {
+                          toggleOption(option.id, precedingActivities, setPrecedingActivities);
+                          setErrors(prev => ({ ...prev, precedingActivities: false }));
+                        }}
                         compact
+                        hasError={errors.precedingActivities && !precedingActivities.includes(option.id)}
                       />
                     ))}
                   </div>
@@ -714,19 +766,28 @@ export default function LogMeltdown() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Date and Time</Label>
+                    <Label className={errors.eventDateTime ? 'text-destructive' : ''}>Date and Time *</Label>
                     <Input
                       type="datetime-local"
                       value={eventDateTime}
-                      onChange={(e) => setEventDateTime(e.target.value)}
-                      className="rounded-xl"
+                      onChange={(e) => {
+                        setEventDateTime(e.target.value);
+                        if (e.target.value) setErrors(prev => ({ ...prev, eventDateTime: false }));
+                      }}
+                      className={`rounded-xl ${errors.eventDateTime ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Duration</Label>
-                    <Select value={duration} onValueChange={setDuration}>
-                      <SelectTrigger className="rounded-xl">
+                    <Label className={errors.duration ? 'text-destructive' : ''}>Duration *</Label>
+                    <Select 
+                      value={duration} 
+                      onValueChange={(val) => {
+                        setDuration(val);
+                        setErrors(prev => ({ ...prev, duration: false }));
+                      }}
+                    >
+                      <SelectTrigger className={`rounded-xl ${errors.duration ? 'border-destructive focus:ring-destructive' : ''}`}>
                         <SelectValue placeholder="Select duration" />
                       </SelectTrigger>
                       <SelectContent>
@@ -744,8 +805,11 @@ export default function LogMeltdown() {
                   <Input
                     placeholder="Enter duration (e.g., 45min, 1 hour)"
                     value={customDuration}
-                    onChange={(e) => setCustomDuration(e.target.value)}
-                    className="rounded-xl"
+                    onChange={(e) => {
+                      setCustomDuration(e.target.value);
+                      if (e.target.value.trim()) setErrors(prev => ({ ...prev, customDuration: false }));
+                    }}
+                    className={`rounded-xl ${errors.customDuration ? 'border-destructive focus-visible:ring-destructive' : ''}`}
                   />
                 )}
 
@@ -772,14 +836,20 @@ export default function LogMeltdown() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
-                  <Label>What helped solving the situation?</Label>
+                  <Label className={errors.resolutionStrategies ? 'text-destructive' : ''}>
+                    What helped solving the situation? *
+                  </Label>
                   <div className="grid gap-3">
                     {RESOLUTION_OPTIONS.map(option => (
                       <MultiSelectButton
                         key={option.id}
                         {...option}
                         selected={resolutionStrategies.includes(option.id)}
-                        onClick={() => toggleOption(option.id, resolutionStrategies, setResolutionStrategies)}
+                        onClick={() => {
+                          toggleOption(option.id, resolutionStrategies, setResolutionStrategies);
+                          setErrors(prev => ({ ...prev, resolutionStrategies: false }));
+                        }}
+                        hasError={errors.resolutionStrategies && !resolutionStrategies.includes(option.id)}
                       />
                     ))}
                   </div>
@@ -788,7 +858,10 @@ export default function LogMeltdown() {
                     <Input
                       placeholder="Other..."
                       value={otherResolution}
-                      onChange={(e) => setOtherResolution(e.target.value)}
+                      onChange={(e) => {
+                        setOtherResolution(e.target.value);
+                        if (e.target.value.trim()) setErrors(prev => ({ ...prev, resolutionStrategies: false }));
+                      }}
                       className="rounded-xl"
                     />
                   </div>
