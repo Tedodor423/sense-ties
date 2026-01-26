@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -79,6 +80,8 @@ const RESOLUTION_OPTIONS = [
 
 export default function LogMeltdown() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const preselectedChildId = searchParams.get('childId');
   const [step, setStep] = useState(1);
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChildId, setSelectedChildId] = useState('');
@@ -119,13 +122,20 @@ export default function LogMeltdown() {
     }
   }, [user]);
 
-  // Auto-skip step 1 if only one child
+  // Auto-skip step 1 if only one child OR if a child is preselected via URL
   useEffect(() => {
-    if (!childrenLoading && children.length === 1) {
-      setSelectedChildId(children[0].id);
-      setStep(2);
+    if (!childrenLoading && children.length > 0) {
+      // If preselected via URL, use that
+      if (preselectedChildId && children.some(c => c.id === preselectedChildId)) {
+        setSelectedChildId(preselectedChildId);
+        setStep(2);
+      } else if (children.length === 1) {
+        // Otherwise, if only one child, auto-select
+        setSelectedChildId(children[0].id);
+        setStep(2);
+      }
     }
-  }, [children, childrenLoading]);
+  }, [children, childrenLoading, preselectedChildId]);
 
   const fetchChildren = async () => {
     if (!user) return;

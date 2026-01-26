@@ -79,7 +79,7 @@ export default function ChildInfo() {
                 <h1 className="text-3xl font-heading font-bold">{child.name}'s Profile</h1>
                 <div className="flex gap-3">
                   <Button asChild>
-                    <Link to="/log-meltdown">
+                    <Link to={`/log-meltdown?childId=${childId}`}>
                       <PlusCircle className="h-4 w-4 mr-2" />
                       Log an event
                     </Link>
