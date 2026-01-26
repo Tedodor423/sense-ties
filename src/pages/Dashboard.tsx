@@ -175,7 +175,7 @@ export default function Dashboard() {
                         }}
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Log an event
+                        Log an Event
                       </Button>
                     </CardContent>
                   </Card>
