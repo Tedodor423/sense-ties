@@ -410,7 +410,9 @@ export default function LogMeltdown() {
     <ProtectedRoute>
       <Layout>
         <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <h1 className="text-3xl font-heading font-bold mb-4">Log an Event</h1>
+          <h1 className="text-3xl font-heading font-bold mb-4">
+            {selectedChild ? `Log an Event for ${selectedChild.name}` : 'Log an Event'}
+          </h1>
           <ProgressIndicator />
 
           {/* Step 1: Select Child (skip if only 1 child) */}
